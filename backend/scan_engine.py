@@ -103,6 +103,15 @@ def build_file_tree(
         ".mdc-hub", ".cache", "generated", "tmp", "temp", ".tmp",
     }
 
+    # 默认排除的文件名（锁文件、生成文件等）
+    SKIP_FILES = {
+        "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+        "composer.lock", "Gemfile.lock", "poetry.lock", "Cargo.lock",
+        "Pipfile.lock", ".DS_Store", "Thumbs.db",
+    }
+    # 默认排除的后缀
+    SKIP_EXTS = {".map", ".lock", ".min.js", ".min.css"}
+
     def _build(path: Path) -> FileNode:
         rel = str(path.relative_to(ws_root)) if ws_root in path.parents or path == ws_root else path.name
         node = FileNode(
@@ -123,7 +132,7 @@ def build_file_tree(
                         sub = _build(entry)
                         if sub.children:  # 只保留非空目录
                             sub_items.append(sub)
-                    elif entry.suffix.lower() in exts:
+                    elif entry.suffix.lower() in exts and entry.name not in SKIP_FILES and entry.suffix.lower() not in SKIP_EXTS:
                         sub = _build(entry)
                         sub_items.append(sub)
             except PermissionError:
