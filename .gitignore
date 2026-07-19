@@ -20,6 +20,10 @@ Thumbs.db
 
 # Project
 .mdc-hub/docs/
+.mcp.json
+.trae/mcp.json
+opencode.jsonc
+opencode.json
 
 # Env
 .env
