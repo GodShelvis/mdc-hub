@@ -98,6 +98,15 @@ async def scan(request: ScanRequest):
     return result.model_dump()
 
 
+@app.get("/api/auto-scan")
+async def auto_scan():
+    """自动扫描工作区的 .mdc-hub/docs/ 目录。"""
+    ws_root = find_workspace_root()
+    docs_dir = str(Path(ws_root) / ".mdc-hub" / "docs")
+    result = scan_directory(docs_dir) if Path(docs_dir).is_dir() else scan_directory(ws_root)
+    return result.model_dump()
+
+
 @app.post("/api/graph")
 async def graph(request: GraphRequest):
     """根据选中的文件路径，构建知识图谱数据。"""

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useGraphStore } from './stores/graph'
 import { useTheme } from './stores/theme'
 import FileTree from './components/FileTree.vue'
@@ -9,11 +9,16 @@ import DirectoryBrowser from './components/DirectoryBrowser.vue'
 
 const store = useGraphStore()
 const { isDark, toggle: toggleTheme } = useTheme()
-const dirInput = ref('')
+const dirInput = ref('.mdc-hub/docs')
 const showBrowser = ref(false)
 
 function handleScan() { const p = dirInput.value.trim(); if (p) store.scan(p) }
 function onBrowseSelect(path: string) { dirInput.value = path; showBrowser.value = false; store.scan(path) }
+
+// 页面加载时自动扫描
+onMounted(() => {
+  store.autoScan()
+})
 </script>
 
 <template>

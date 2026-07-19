@@ -35,13 +35,31 @@ export const useGraphStore = defineStore('graph', () => {
       })
       directory.value = dirPath
       scanResult.value = data
-      // 扫描后清空已选和图谱
       selectedFiles.value = []
       nodes.value = []
       edges.value = []
       expandedNodeId.value = null
     } catch (err) {
       console.error('扫描失败', err)
+      scanResult.value = null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /** 自动扫描工作区（无需输入路径） */
+  async function autoScan() {
+    loading.value = true
+    try {
+      const { data } = await axios.get<ScanResult>('/api/auto-scan')
+      scanResult.value = data
+      directory.value = data.directory
+      selectedFiles.value = []
+      nodes.value = []
+      edges.value = []
+      expandedNodeId.value = null
+    } catch (err) {
+      console.error('自动扫描失败', err)
       scanResult.value = null
     } finally {
       loading.value = false
@@ -176,6 +194,7 @@ export const useGraphStore = defineStore('graph', () => {
     expandedNodeId,
     expandedNodeBody,
     scan,
+    autoScan,
     loadGraph,
     toggleFile,
     toggleAll,
