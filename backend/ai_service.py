@@ -232,3 +232,52 @@ def build_directory_summary_prompt(dir_path: str, child_docs: list[dict]) -> str
 - connections 中必须包含所有子文档的 "包含" 关系
 - 如果子文档中有对外部模块的引用，也要在 connections 中体现
 - 基于子文档内容进行抽象总结，不要编造信息"""
+
+
+# ---- 旧 API 兼容（Web Dashboard 使用） ----
+
+async def summarize_content(body: str) -> dict | None:
+    """对 MDC 文档正文进行 AI 摘要（兼容旧 API）。"""
+    provider = _get_provider_config()
+    if not provider:
+        return _mock_summarize(body)
+
+    prompt = f"""你是一个知识管理助手。请分析以下 Markdown 文档内容，返回 JSON：
+{{"summary": "200字以内的内容摘要", "tags": ["标签1", "标签2"], "category": "推荐分类"}}
+文档内容：{body[:8000]}"""
+
+    try:
+        text = await chat([
+            {"role": "system", "content": "你是一个知识管理助手，只返回 JSON。"},
+            {"role": "user", "content": prompt},
+        ])
+        return extract_json(text)
+    except Exception:
+        return _mock_summarize(body)
+
+
+def save_summary_to_file(file_path: str, result: dict, model: str = "") -> bool:
+    """将 AI 摘要回写到 MDC 文件（兼容旧 API）。"""
+    from datetime import datetime, timezone
+    from backend.scanner import parse_mdc_file, write_frontmatter
+
+    node = parse_mdc_file(file_path)
+    if not node:
+        return False
+    node.summary = result.get("summary", node.summary)
+    node.tags = result.get("tags", node.tags)
+    node.category = result.get("category", node.category)
+    node.ai_model = model or _get_provider_config().get("model", "")
+    node.ai_summarized_at = datetime.now(timezone.utc).isoformat()
+    return write_frontmatter(file_path, node)
+
+
+def _mock_summarize(body: str) -> dict:
+    """未配置 API Key 时的 Mock 摘要。"""
+    words = body.strip().split()
+    preview = " ".join(words[:30])
+    return {
+        "summary": f"[Mock] 文档预览: {preview}...",
+        "tags": ["mock", "待分类"],
+        "category": "未分类",
+    }
