@@ -1,7 +1,7 @@
 ---
 id: "vite-config"
 title: "Vite 构建工具配置指南"
-category: "技术/工具"
+category: "devops-core"
 tags: [vite, build, tooling, esbuild]
 connections:
   - target: "mdc-spec"

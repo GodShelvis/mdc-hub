@@ -1,7 +1,7 @@
 ---
 id: "pinia-best-practices"
 title: "Pinia 状态管理最佳实践"
-category: "技术/前端/Vue"
+category: "frontend-core"
 tags: [vue, pinia, state, store]
 connections:
   - target: "vue-composables"

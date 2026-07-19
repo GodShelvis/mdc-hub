@@ -1,7 +1,7 @@
 ---
 id: "component-design"
 title: "组件设计原则与模式"
-category: "技术/前端/架构"
+category: "architecture-core"
 tags: [component-design, solid, clean-code, architecture]
 connections:
   - target: "react-hooks-deep-dive"

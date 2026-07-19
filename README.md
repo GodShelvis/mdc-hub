@@ -76,9 +76,9 @@ mdc-hub graph list ./my-project --json   # JSON 格式输出
 
 ```json
 [
-  {"id": "user-service", "title": "UserService — 用户服务", "category": "技术/后端/Service", "tags": ["java", "service"]},
-  {"id": "user-service.findById", "title": "UserService.findById()", "category": "技术/后端/Service/UserService", "tags": ["java", "method"]},
-  {"id": "user-dao", "title": "UserDao — 用户数据访问", "category": "技术/后端/Dao", "tags": ["java", "dao"]}
+  {"id": "user-service", "title": "UserService — 用户服务", "category": "backend-core", "tags": ["java", "service"]},
+  {"id": "user-service.findById", "title": "UserService.findById()", "category": "backend-core", "tags": ["java", "method"]},
+  {"id": "user-dao", "title": "UserDao — 用户数据访问", "category": "backend-core", "tags": ["java", "dao"]}
 ]
 ```
 
@@ -129,18 +129,53 @@ mdc-hub graph path user-controller email-service ./my-project -d 5   # 限制最
 
 | 参数 | 简写 | 说明 | 默认值 |
 |------|------|------|--------|
-| `--depth` | `-d` | 最大搜索深度 | 10 |
+| `--max-depth` | `-d` | 最大搜索深度 | 5 |
 
 示例输出：
 
 ```
-Shortest path from "user-controller" to "email-service" (length=3):
+  路径（2 步）：
 
-  user-controller
-    └─ [依赖] → user-service
-                  └─ [依赖] → notification-service
-                                └─ [依赖] → email-service
+  Component Design Principles [component-design]
+  ↓ React Hooks Deep Dive [react-hooks-deep-dive]
+  ↓ Next.js App Router [nextjs-app-router]
 ```
+
+### provider setup — 配置 AI 提供商
+
+交互式配置 AI 提供商，用于智能扫描。
+
+```bash
+mdc-hub provider setup           # 当前目录项目
+mdc-hub provider setup -p ./my-project
+```
+
+流程：
+1. 选择预设提供商（OpenAI / Anthropic / 智谱 / 通义千问 / DeepSeek / MiniMax）或自定义
+2. 输入 API Key（隐藏输入）
+3. 自动获取可用模型列表，选择模型
+
+配置保存在 `.mdc-hub/config/settings.yaml`。
+
+### scan — AI 智能扫描
+
+使用配置的 AI 提供商，自底向上扫描工作区生成知识图谱文档。
+
+```bash
+mdc-hub scan                     # 扫描当前目录
+mdc-hub scan ./src               # 扫描指定目录
+mdc-hub scan --dry-run           # 预览扫描计划（不调 AI）
+mdc-hub scan -e .py -e .java     # 仅扫描指定后缀
+mdc-hub scan -c 500              # 自定义分块大小
+```
+
+扫描策略：
+- 自底向上：先扫描源文件 → 再逐层汇总目录
+- 大文件自动分块（默认 1000 行/块）
+- 每文件两轮分析：结构提取 → 文档生成
+- 目录级汇总：基于子文档摘要，不重复扫描
+
+可扫描后缀在 `.mdc-hub/config/settings.yaml` 中配置，默认支持 29 种常见格式。
 
 ## MCP 工具
 
@@ -170,7 +205,10 @@ mdc-hub/
 │   ├── archiver.py              # .mdc-hub/ 归档管理
 │   ├── main.py                  # FastAPI HTTP API
 │   ├── scanner.py               # MDC 文件解析
-│   └── ai_service.py            # AI 摘要服务
+│   ├── ai_service.py            # 通用 AI 接口（OpenAI 兼容）
+│   └── scan_engine.py           # 扫描引擎（自底向上分析）
+├── cli/                     # CLI 命令行
+│   └── main.py                  # install / serve / provider / scan / graph
 ├── frontend/                # Vue 3 前端
 │   └── src/
 │       ├── components/          # 图表、文件树、分类筛选
@@ -200,7 +238,7 @@ mdc-hub/
 ---
 id: "user-service"
 title: "UserService — 用户服务"
-category: "技术/后端/Service"
+category: "backend-core"
 tags: [java, service, user]
 connections:
   - target: "user-dao"

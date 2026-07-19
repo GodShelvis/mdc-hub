@@ -19,9 +19,9 @@ frontend/dist/
 Thumbs.db
 
 # Project
-.mdc-hub/docs/
+.mdc-hub/
 .mcp.json
-.trae/mcp.json
+.trae/
 opencode.jsonc
 opencode.json
 

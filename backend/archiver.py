@@ -68,6 +68,24 @@ def load_config(workspace_root: Optional[str] = None) -> dict:
     return {
         "workspace_root": find_workspace_root(workspace_root),
         "doc_dir": "docs",
+        "provider": {
+            "id": "",
+            "name": "",
+            "base_url": "",
+            "api_key": "",
+            "model": "",
+        },
+        "scan": {
+            "chunk_size": 1000,
+            "extensions": [
+                ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
+                ".go", ".rs", ".vue",
+                ".xml", ".yaml", ".yml", ".properties", ".json", ".toml",
+                ".sql", ".sh", ".tf",
+                ".kt", ".swift", ".c", ".h", ".cpp", ".hpp",
+                ".cs", ".rb", ".php", ".scala", ".dart",
+            ],
+        },
     }
 
 
@@ -155,11 +173,59 @@ def list_archived_docs(workspace_root: Optional[str] = None) -> list[dict]:
 
 
 def ensure_hub_structure(workspace_root: Optional[str] = None):
-    """确保 .mdc-hub/ 目录结构存在。"""
+    """确保 .mdc-hub/ 目录结构存在，并初始化预设配置文件。"""
     root = find_workspace_root(workspace_root)
-    get_config_dir(root)
+    config_dir = get_config_dir(root)
     get_docs_dir(root)
 
     # 确保有默认配置
-    if not (get_config_dir(root) / SETTINGS_FILE).exists():
-        save_config({"workspace_root": root, "doc_dir": "docs"}, root)
+    if not (config_dir / SETTINGS_FILE).exists():
+        save_config({
+            "workspace_root": root,
+            "doc_dir": "docs",
+            "provider": {"id": "", "name": "", "base_url": "", "api_key": "", "model": ""},
+            "scan": {
+                "chunk_size": 1000,
+                "extensions": [
+                    ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
+                    ".go", ".rs", ".vue",
+                    ".xml", ".yaml", ".yml", ".properties", ".json", ".toml",
+                    ".sql", ".sh", ".tf",
+                    ".kt", ".swift", ".c", ".h", ".cpp", ".hpp",
+                    ".cs", ".rb", ".php", ".scala", ".dart",
+                ],
+            },
+        }, root)
+
+    # 初始化预设文件（如果不存在则从包内复制）
+    _seed_preset(config_dir, "categories.yaml", root)
+    _seed_preset(config_dir, "tags.yaml", root)
+    _seed_preset(config_dir, "providers.yaml", root)
+
+
+def _seed_preset(config_dir: Path, filename: str, workspace_root: str = ""):
+    """从包内置预设复制到 .mdc-hub/config/（如不存在）。
+
+    查找优先级：
+    1. 项目根 config/ 目录（开发模式）
+    2. 包内置 backend/presets/（pip 安装后）
+    """
+    target = config_dir / filename
+    if target.exists():
+        return
+
+    # 优先级1: 项目根 config/（开发模式）
+    root = Path(workspace_root or find_workspace_root())
+    dev_src = root / "config" / filename
+    if dev_src.is_file():
+        target.write_text(dev_src.read_text(encoding="utf-8"), encoding="utf-8")
+        return
+
+    # 优先级2: 包内置 backend/presets/
+    try:
+        import importlib.resources
+        src = importlib.resources.files("backend") / "presets" / filename
+        if src.is_file():
+            target.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    except Exception:
+        pass  # 预设文件缺失不影响正常运行

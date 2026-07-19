@@ -1,7 +1,7 @@
 ---
 id: "micro-frontends"
 title: "微前端架构设计"
-category: "技术/架构"
+category: "architecture-core"
 tags: [micro-frontends, architecture, module-federation]
 connections:
   - target: "component-design"

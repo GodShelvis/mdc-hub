@@ -1,7 +1,7 @@
 ---
 id: "mdc-spec"
 title: "MDC 文件格式规范"
-category: "技术/工具"
+category: "devops-core"
 tags: [mdc, spec, markdown, knowledge-graph]
 connections:
   - target: "component-design"
@@ -16,7 +16,7 @@ connections:
 |------|------|------|------|
 | id | 是 | string | 全局唯一标识 |
 | title | 是 | string | 节点显示标题 |
-| category | 否 | string | 分类路径，如 `技术/前端/React` |
+| category | 否 | string | 分类 ID，从 `.mdc-hub/config/categories.yaml` 选取，如 `frontend-core` |
 | tags | 否 | string[] | 标签数组，用于图层筛选 |
 | connections | 否 | object[] | 关联节点列表 |
 | summary | 否 | string | AI 生成的摘要 |
@@ -45,6 +45,6 @@ flowchart LR
 ## 最佳实践
 
 - `id` 使用 kebab-case，具备语义性
-- `category` 使用 `/` 分隔层级
+- `category` 使用预设分类库中的扁平 ID
 - `tags` 控制在 5 个以内，保持精准
 - 正文采用标准 Markdown 格式

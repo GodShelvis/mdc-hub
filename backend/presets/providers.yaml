@@ -1,0 +1,27 @@
+# MDC Hub 预设 AI 提供商
+# 仅预置 base_url，模型列表在用户输入 API Key 后实时获取
+
+providers:
+  - id: "openai"
+    name: "OpenAI"
+    base_url: "https://api.openai.com/v1"
+
+  - id: "anthropic"
+    name: "Anthropic"
+    base_url: "https://api.anthropic.com/v1"
+
+  - id: "zhipu"
+    name: "智谱 GLM"
+    base_url: "https://open.bigmodel.cn/api/paas/v4"
+
+  - id: "tongyi"
+    name: "阿里通义千问"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+  - id: "deepseek"
+    name: "DeepSeek"
+    base_url: "https://api.deepseek.com/v1"
+
+  - id: "minimax"
+    name: "MiniMax"
+    base_url: "https://api.minimaxi.com/v1"

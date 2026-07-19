@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdc-hub"
-version = "0.2.0"
-description = "Knowledge base management & visualization tool — MCP Server for AI code scanning"
+version = "0.3.0"
+description = "Knowledge base management & visualization tool — MCP Server + AI-powered code scanning"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115",
@@ -35,4 +35,8 @@ mdc-hub = "cli.main:cli"
 mdc-hub-mcp = "backend.mcp_server:run"
 
 [tool.setuptools.packages.find]
-include = ["backend*", "cli*"]
+include = ["backend*", "cli*", "skills*"]
+
+[tool.setuptools.package-data]
+"skills" = ["**/SKILL.md"]
+"backend" = ["**/*.py", "presets/*.yaml"]

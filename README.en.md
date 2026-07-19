@@ -2,168 +2,113 @@
 
 [中文](README.md) | English
 
-**Knowledge Base Management & Visualization Tool** — Transform code, documents, and data into interactive knowledge graphs.
+**Knowledge Base Management & Visualization Tool** — Transform your project code, documents, and data into interactive knowledge graphs, powered by AI.
 
 ## Features
 
-- **MCP Server** — 6 tools, directly callable by AI
-- **5 Built-in Skills** — code/table/document/media/directory scanning, ready to use
-- **Method-Level Knowledge Graph** — each Java/Python/TS method as an independent node, call relationships visualized
-- **Web Dashboard** — drag nodes, Markdown rendering, category filtering
+- **MCP Server** — 6 tools, directly callable by AI via stdio
+- **5 Built-in Skills** — code/table/document/media/directory scanning, ready out of the box
+- **AI-Powered Scanning** — scan entire codebases with any OpenAI-compatible provider, auto-generate structured documentation
+- **Method-Level Knowledge Graph** — each Java/Python/TS method as an independent node, with visualized call relationships
+- **Web Dashboard** — drag-and-drop nodes, Markdown rendering, category/tag filtering
 - **Dark/Light Theme** — full day/night mode support
-- **Mermaid Diagrams** — automatic Mermaid chart rendering in documents
+- **Mermaid Diagrams** — automatic chart rendering in documents
 
 ## Quick Start
-
-### One-Line Install
 
 ```bash
 pip install "mdc-hub[mcp] @ git+https://github.com/GodShelvis/mdc-hub.git"
 mdc-hub install
 ```
 
-`mdc-hub install` automatically detects installed AI tools, writes MCP configs, and installs 5 built-in Skills to their directories (supports Claude Desktop, Cursor, VS Code, Trae, and more — 9 platforms).
+`mdc-hub install` auto-detects installed AI tools (Trae, Claude Code, OpenCode, Cursor, Codex, Windsurf, etc. — 9 platforms), writes MCP configs, and installs all 5 Skills. During install, you can optionally configure an AI provider for smart scanning.
 
-After installation, simply use in any AI tool:
+After installation, just say in any AI tool:
 
 > "Scan this project and generate a knowledge graph"
 
-The AI will automatically invoke the `mdc-directory-scanner` Skill and complete scanning and archiving in 7 steps.
-
-### Launch Web Dashboard
-
-```bash
-mdc-hub serve --port 8000
-```
-
-Open `http://localhost:8000` in your browser to view all MDC nodes in the interactive graph panel.
-
 ## CLI Reference
 
-`mdc-hub` provides the following subcommands:
-
-### install — Install Configuration
-
-Auto-detects AI tools, writes MCP configs, installs Skills.
+### install — Setup
 
 ```bash
 mdc-hub install              # Auto-detect and install
-mdc-hub install --dry-run    # Preview only, no writes
+mdc-hub install --dry-run    # Preview only
 ```
 
-Supported platforms: Trae, Claude Code, OpenCode, Cursor, Codex CLI, WorkBuddy, CodeBuddy, Windsurf, JetBrains.
+### provider setup — Configure AI Provider
+
+```bash
+mdc-hub provider setup
+```
+
+Interactive flow: choose a preset provider (OpenAI / Anthropic / Zhipu GLM / Tongyi Qwen / DeepSeek / MiniMax) or custom → enter API key → auto-fetch model list → save to `.mdc-hub/config/settings.yaml`.
+
+### scan — AI Smart Scanning
+
+```bash
+mdc-hub scan                  # Scan current directory
+mdc-hub scan ./src            # Scan specific directory
+mdc-hub scan --dry-run        # Preview plan (no AI calls)
+mdc-hub scan -e .py -e .java  # Filter by extension
+```
+
+Bottom-up strategy: source files first → directory summaries. Large files auto-chunked (1000 lines). Two passes per file (structure → document generation). Directory-level docs summarize children without re-scanning.
 
 ### serve — Launch Web UI
-
-One command to start backend API + frontend static files.
 
 ```bash
 mdc-hub serve                  # Default port 8000
 mdc-hub serve --port 3000      # Custom port
-mdc-hub serve --dev            # Dev mode (auto-reload)
+mdc-hub serve --dev            # Dev mode
 ```
 
 ### graph list — List Nodes
 
-List all MDC knowledge graph nodes in a directory.
-
 ```bash
 mdc-hub graph list ./my-project
-mdc-hub graph list ./my-project --json   # JSON output
+mdc-hub graph list ./my-project --json
 ```
 
-Example output (`--json`):
-
-```json
-[
-  {"id": "user-service", "title": "UserService", "category": "Tech/Backend/Service", "tags": ["java", "service"]},
-  {"id": "user-service.findById", "title": "UserService.findById()", "category": "Tech/Backend/Service/UserService", "tags": ["java", "method"]}
-]
-```
-
-### graph neighbors — Neighbor Traversal
-
-Traverse N-layer neighbor nodes from a given node, with direction control.
+### graph neighbors — Traverse Neighbors
 
 ```bash
-mdc-hub graph neighbors user-service ./my-project
-mdc-hub graph neighbors user-service ./my-project -d 2          # 2-level depth
-mdc-hub graph neighbors user-service ./my-project -r down       # Downstream only
-mdc-hub graph neighbors user-service ./my-project -r up         # Upstream only
-mdc-hub graph neighbors user-service ./my-project -r both       # Both directions (default)
+mdc-hub graph neighbors <node-id> <dir>
+mdc-hub graph neighbors <node-id> <dir> -d 2    # Depth 2
+mdc-hub graph neighbors <node-id> <dir> -r up   # Upstream only
 ```
 
-Parameters:
-
-| Parameter | Short | Description | Default |
-|-----------|-------|-------------|---------|
-| `--depth` | `-d` | Traversal depth | 2 |
-| `--direction` | `-r` | Direction: `up` / `down` / `both` | `both` |
-
-Example output:
-
-```
-  ★ React Hooks Deep Dive [react-hooks-deep-dive]
-    Category: Tech/Frontend/React
-    Direction: both, Depth: 2
-    Connected nodes: 8
-
-  ── Level 1 ──
-    component-design — Component Design Principles (foundation, architecture)
-    state-management — State Management Selection (depended by, depended by)
-    ...
-
-  ── Level 2 ──
-    mdc-spec — MDC File Format Spec (tool scenario)
-    pinia-best-practices — Pinia Best Practices (use together, comparison)
-```
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--depth` | `-d` | Traversal depth | 1 |
+| `--relation` | `-r` | `up` / `down` / `both` | `both` |
 
 ### graph path — Shortest Path
 
-Find the shortest call path between two nodes.
-
 ```bash
-mdc-hub graph path user-controller email-service ./my-project
-mdc-hub graph path user-controller email-service ./my-project -d 5   # Max depth
-```
-
-Parameters:
-
-| Parameter | Short | Description | Default |
-|-----------|-------|-------------|---------|
-| `--max-depth` | `-d` | Max search depth | 5 |
-
-Example output:
-
-```
-  Path (2 steps):
-
-  Component Design Principles [component-design]
-  ↓ React Hooks Deep Dive [react-hooks-deep-dive]
-  ↓ Next.js App Router [nextjs-app-router]
+mdc-hub graph path <from> <to> <dir>
+mdc-hub graph path <from> <to> <dir> -d 5   # Max depth
 ```
 
 ## MCP Tools
 
-These tools are exposed by the MCP Server and can be called by AI after loading a Skill:
-
 | Tool | Description |
 |------|-------------|
-| `scan_directory` | Scan directory by file type, with type filtering |
+| `scan_directory` | Scan directory by file type |
 | `read_files` | Batch read file contents |
-| `write_mdc_document` | Write archived documents to `.mdc-hub/docs/` |
+| `write_mdc_document` | Write to `.mdc-hub/docs/` |
 | `list_archived_documents` | List archived documents |
 | `get_workspace_info` | Get workspace root and config |
-| `open_dashboard` | Get Web UI access URL |
+| `open_dashboard` | Get Web UI URL |
 
 ## Architecture
 
 ```
 mdc-hub/
-├── skills/                  # AI Skills (copied to .trae/skills/)
+├── skills/                  # AI Skills (5 built-in)
 │   ├── mdc-directory-scanner/   # Orchestrator (7-step workflow)
 │   ├── mdc-code-scanner/        # Code → method-level nodes
-│   ├── mdc-excel-scanner/       # Tables → table/sheet-level nodes
+│   ├── mdc-excel-scanner/       # Tables → sheet-level nodes
 │   ├── mdc-doc-scanner/         # Documents → chapter-level nodes
 │   └── mdc-media-scanner/       # Media → resource-level nodes
 ├── backend/                 # Python Backend
@@ -171,15 +116,12 @@ mdc-hub/
 │   ├── archiver.py              # .mdc-hub/ archive management
 │   ├── main.py                  # FastAPI HTTP API
 │   ├── scanner.py               # MDC file parser
-│   └── ai_service.py            # AI summary service
+│   ├── ai_service.py            # Universal AI (OpenAI-compatible)
+│   └── scan_engine.py           # Bottom-up scan engine
+├── cli/                     # CLI
+│   └── main.py                  # install / serve / provider / scan / graph
 ├── frontend/                # Vue 3 Frontend
-│   └── src/
-│       ├── components/          # Graph, file tree, category filter
-│       ├── stores/              # Pinia state management
-│       └── utils/               # Colors, Mermaid rendering
-├── examples/                # Example MDC documents
-├── install.sh               # One-click install
-├── mcp-config.json          # MCP config template
+├── examples/                # Example MDC docs
 └── scripts/
     └── mcp-entry.sh         # MCP Server entry point
 ```
@@ -189,8 +131,8 @@ mdc-hub/
 ```yaml
 ---
 id: "user-service"
-title: "UserService"
-category: "Tech/Backend/Service"
+title: "UserService — User Service"
+category: "backend-core"
 tags: [java, service, user]
 connections:
   - target: "user-dao"

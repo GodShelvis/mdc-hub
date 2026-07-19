@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build wheel
+        run: |
+          pip install build
+          python -m build --wheel
+
+      - name: Install wheel
+        run: |
+          wheel=$(ls dist/*.whl)
+          pip install "$wheel"
+
+      - name: Verify CLI
+        run: |
+          mdc-hub --help
+          mdc-hub install --help
+          mdc-hub serve --help
+          mdc-hub graph --help
+          mdc-hub provider --help
+          mdc-hub scan --help
+
+      - name: Verify skills in package
+        run: |
+          python -c "
+          import importlib.resources
+          try:
+              skills = importlib.resources.files('skills')
+              skill_dirs = [d for d in skills.iterdir() if d.is_dir()]
+              print(f'Skills found: {len(skill_dirs)}')
+              for d in skill_dirs:
+                  md = d / 'SKILL.md'
+                  if md.exists():
+                      print(f'  ✓ {d.name}')
+          except Exception as e:
+              print(f'Error: {e}')
+              exit(1)
+          "

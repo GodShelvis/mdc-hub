@@ -1,7 +1,7 @@
 ---
 id: "react-server-components"
 title: "React Server Components 深入理解"
-category: "技术/前端/React"
+category: "frontend-core"
 tags: [react, rsc, server-components, nextjs]
 connections:
   - target: "react-hooks-deep-dive"

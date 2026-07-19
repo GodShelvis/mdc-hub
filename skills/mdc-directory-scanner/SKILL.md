@@ -37,7 +37,7 @@ description: "统筹扫描整个目录，按文件类型分流到专业子扫描
 - 双语别名匹配：文档中出现"数据库"/"database"/"MySQL"均可命中 `database`
 
 ### 标签库（tags）
-- 位置：`.mdc-hub/tags.yaml`
+- 位置：`.mdc-hub/config/tags.yaml`
 - 用 `read_files` 读取后，从 `tags.id` 中选择 3-5 个最匹配的标签
 - 共 80+ 个预设标签，覆盖编程语言、框架、数据库、中间件、DevOps、AI/ML、办公等
 - 通用编程概念（class/function/field/package/dependency 等）仅用英文 id
@@ -77,8 +77,8 @@ mdc-hub graph path <from-id> <to-id> <dir> [-d max-depth]
 
 1. 调用 `get_workspace_info` 获取工作区根目录和 `.mdc-hub/` 路径
 2. **必须**调用 `read_files` 读取以下两个文件：
-   - `.mdc-hub/categories.yaml` — 分类库
-   - `.mdc-hub/tags.yaml` — 标签库
+   - `.mdc-hub/config/categories.yaml` — 分类库
+   - `.mdc-hub/config/tags.yaml` — 标签库
 3. 记住 `workspace_root` 和 `docs_dir`，后续步骤要用
 
 ### 第二步：全量扫描

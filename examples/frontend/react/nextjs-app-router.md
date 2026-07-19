@@ -1,7 +1,7 @@
 ---
 id: "nextjs-app-router"
 title: "Next.js App Router 架构"
-category: "技术/前端/React"
+category: "frontend-core"
 tags: [nextjs, app-router, ssr, routing]
 connections:
   - target: "react-server-components"

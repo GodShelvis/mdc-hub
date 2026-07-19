@@ -1,7 +1,7 @@
 ---
 id: "vue-composables"
 title: "Vue 3 Composables 设计模式"
-category: "技术/前端/Vue"
+category: "frontend-core"
 tags: [vue, composables, composition-api, reactivity]
 connections:
   - target: "react-hooks-deep-dive"

@@ -11,7 +11,7 @@ description: "Scans code files (Java/Python/TS/Go etc.) and generates method-lev
 
 ## 分类与标签约束
 
-**强制规则**：`category` 必须从 `.mdc-hub/categories.yaml` 中选取，`tags` 从 `.mdc-hub/tags.yaml` 中选取。
+**强制规则**：`category` 必须从 `.mdc-hub/config/categories.yaml` 中选取，`tags` 从 `.mdc-hub/config/tags.yaml` 中选取。
 
 - 分类示例：`backend` / `frontend` / `database` / `architecture`
 - 标签示例：`java` / `spring-boot` / `mybatis` / `class` / `function`

@@ -1,0 +1,404 @@
+# MDC Hub 预设标签库
+# 安装时按用户角色选择加载，AI 生成文档时 tags 优先从此处选取
+# 双语别名：任一命中即可匹配，输出统一使用 id
+# 标注 (通用) 的术语只使用英文 id
+
+tags:
+  # ===== 编程语言 =====
+  - id: "java"
+    name: "Java"
+    aliases: [java, Java, JAVA, JDK, JVM]
+    scope: [backend, mobile]
+
+  - id: "python"
+    name: "Python"
+    aliases: [python, Python, PYTHON]
+    scope: [backend, ai-ml, data]
+
+  - id: "typescript"
+    name: "TypeScript"
+    aliases: [typescript, TypeScript, TS, ts]
+    scope: [frontend, backend]
+
+  - id: "javascript"
+    name: "JavaScript"
+    aliases: [javascript, JavaScript, JS, js]
+    scope: [frontend, backend]
+
+  - id: "go"
+    name: "Go"
+    aliases: [go, Go, GO, golang, Golang]
+    scope: [backend, devops]
+
+  - id: "rust"
+    name: "Rust"
+    aliases: [rust, Rust, RUST]
+    scope: [backend]
+
+  - id: "cpp"
+    name: "C/C++"
+    aliases: [c++, C++, cpp, CPP, c, C]
+    scope: [backend]
+
+  - id: "csharp"
+    name: "C#"
+    aliases: [c#, C#, csharp, CSharp]
+    scope: [backend]
+
+  - id: "kotlin"
+    name: "Kotlin"
+    aliases: [kotlin, Kotlin]
+    scope: [mobile, backend]
+
+  - id: "swift"
+    name: "Swift"
+    aliases: [swift, Swift]
+    scope: [mobile]
+
+  - id: "dart"
+    name: "Dart"
+    aliases: [dart, Dart]
+    scope: [mobile, frontend]
+
+  - id: "ruby"
+    name: "Ruby"
+    aliases: [ruby, Ruby]
+    scope: [backend]
+
+  - id: "php"
+    name: "PHP"
+    aliases: [php, PHP]
+    scope: [backend]
+
+  - id: "scala"
+    name: "Scala"
+    aliases: [scala, Scala]
+    scope: [backend, data]
+
+  - id: "groovy"
+    name: "Groovy"
+    aliases: [groovy, Groovy]
+    scope: [backend]
+
+  - id: "shell"
+    name: "Shell"
+    aliases: [shell, Shell, bash, Bash, zsh, Zsh]
+    scope: [devops]
+
+  # ===== 框架 =====
+  - id: "spring-boot"
+    name: "Spring Boot"
+    aliases: [spring-boot, Spring Boot, springboot, Spring]
+    scope: [backend]
+
+  - id: "mybatis"
+    name: "MyBatis"
+    aliases: [mybatis, MyBatis, Mybatis]
+    scope: [backend]
+
+  - id: "django"
+    name: "Django"
+    aliases: [django, Django]
+    scope: [backend]
+
+  - id: "flask"
+    name: "Flask"
+    aliases: [flask, Flask]
+    scope: [backend]
+
+  - id: "fastapi"
+    name: "FastAPI"
+    aliases: [fastapi, FastAPI]
+    scope: [backend]
+
+  - id: "react"
+    name: "React"
+    aliases: [react, React, ReactJS, reactjs]
+    scope: [frontend]
+
+  - id: "vue"
+    name: "Vue"
+    aliases: [vue, Vue, VueJS, vuejs]
+    scope: [frontend]
+
+  - id: "angular"
+    name: "Angular"
+    aliases: [angular, Angular]
+    scope: [frontend]
+
+  - id: "nextjs"
+    name: "Next.js"
+    aliases: [nextjs, Next.js, NextJS, next]
+    scope: [frontend]
+
+  - id: "nuxt"
+    name: "Nuxt"
+    aliases: [nuxt, Nuxt, NuxtJS]
+    scope: [frontend]
+
+  - id: "express"
+    name: "Express"
+    aliases: [express, Express]
+    scope: [backend]
+
+  - id: "nestjs"
+    name: "NestJS"
+    aliases: [nestjs, NestJS, Nest]
+    scope: [backend]
+
+  - id: "gin"
+    name: "Gin"
+    aliases: [gin, Gin]
+    scope: [backend]
+
+  # ===== 数据库 / 存储 =====
+  - id: "mysql"
+    name: "MySQL"
+    aliases: [mysql, MySQL]
+    scope: [database]
+
+  - id: "postgresql"
+    name: "PostgreSQL"
+    aliases: [postgresql, PostgreSQL, postgres, Postgres, PG]
+    scope: [database]
+
+  - id: "mongodb"
+    name: "MongoDB"
+    aliases: [mongodb, MongoDB, mongo, Mongo]
+    scope: [database]
+
+  - id: "redis"
+    name: "Redis"
+    aliases: [redis, Redis]
+    scope: [database, middleware]
+
+  - id: "elasticsearch"
+    name: "Elasticsearch"
+    aliases: [elasticsearch, Elasticsearch, ES, elastic]
+    scope: [database]
+
+  - id: "clickhouse"
+    name: "ClickHouse"
+    aliases: [clickhouse, ClickHouse]
+    scope: [database, data]
+
+  - id: "tidb"
+    name: "TiDB"
+    aliases: [tidb, TiDB]
+    scope: [database]
+
+  - id: "minio"
+    name: "MinIO"
+    aliases: [minio, MinIO, Minio]
+    scope: [database]
+
+  - id: "neo4j"
+    name: "Neo4j"
+    aliases: [neo4j, Neo4j, Neo4J]
+    scope: [database]
+
+  # ===== 中间件 =====
+  - id: "kafka"
+    name: "Kafka"
+    aliases: [kafka, Kafka]
+    scope: [middleware]
+
+  - id: "rabbitmq"
+    name: "RabbitMQ"
+    aliases: [rabbitmq, RabbitMQ]
+    scope: [middleware]
+
+  - id: "rocketmq"
+    name: "RocketMQ"
+    aliases: [rocketmq, RocketMQ]
+    scope: [middleware]
+
+  - id: "pulsar"
+    name: "Pulsar"
+    aliases: [pulsar, Pulsar]
+    scope: [middleware]
+
+  - id: "nginx"
+    name: "Nginx"
+    aliases: [nginx, Nginx]
+    scope: [middleware, devops]
+
+  - id: "envoy"
+    name: "Envoy"
+    aliases: [envoy, Envoy]
+    scope: [middleware, devops]
+
+  - id: "zookeeper"
+    name: "ZooKeeper"
+    aliases: [zookeeper, ZooKeeper, zk, ZK]
+    scope: [middleware]
+
+  - id: "nacos"
+    name: "Nacos"
+    aliases: [nacos, Nacos]
+    scope: [middleware]
+
+  # ===== DevOps =====
+  - id: "docker"
+    name: "Docker"
+    aliases: [docker, Docker]
+    scope: [devops]
+
+  - id: "kubernetes"
+    name: "Kubernetes"
+    aliases: [kubernetes, Kubernetes, K8s, k8s, K8S]
+    scope: [devops]
+
+  - id: "jenkins"
+    name: "Jenkins"
+    aliases: [jenkins, Jenkins]
+    scope: [devops]
+
+  - id: "git"
+    name: "Git"
+    aliases: [git, Git, GitHub, GitLab, 版本控制, version control]
+    scope: [devops]
+
+  - id: "prometheus"
+    name: "Prometheus"
+    aliases: [prometheus, Prometheus]
+    scope: [devops]
+
+  - id: "grafana"
+    name: "Grafana"
+    aliases: [grafana, Grafana]
+    scope: [devops]
+
+  - id: "terraform"
+    name: "Terraform"
+    aliases: [terraform, Terraform]
+    scope: [devops]
+
+  - id: "ansible"
+    name: "Ansible"
+    aliases: [ansible, Ansible]
+    scope: [devops]
+
+  # ===== AI/ML =====
+  - id: "pytorch"
+    name: "PyTorch"
+    aliases: [pytorch, PyTorch]
+    scope: [ai-ml]
+
+  - id: "tensorflow"
+    name: "TensorFlow"
+    aliases: [tensorflow, TensorFlow]
+    scope: [ai-ml]
+
+  - id: "langchain"
+    name: "LangChain"
+    aliases: [langchain, LangChain]
+    scope: [ai-ml]
+
+  - id: "llama-index"
+    name: "LlamaIndex"
+    aliases: [llamaindex, LlamaIndex, llama-index, llama index]
+    scope: [ai-ml]
+
+  - id: "openai"
+    name: "OpenAI"
+    aliases: [openai, OpenAI, GPT, gpt, ChatGPT]
+    scope: [ai-ml]
+
+  - id: "mcp"
+    name: "MCP"
+    aliases: [MCP, mcp, Model Context Protocol]
+    scope: [ai-ml]
+
+  - id: "rag"
+    name: "RAG"
+    aliases: [RAG, rag, retrieval augmented generation, 检索增强]
+    scope: [ai-ml]
+
+  # ===== 通用编程概念（仅英文） =====
+  - id: "class"
+    name: "class / 类"
+    aliases: [class, 类, 类型定义, type definition]
+    scope: [backend, frontend, mobile]
+
+  - id: "function"
+    name: "function / 方法"
+    aliases: [function, method, 函数, 方法, 过程, procedure, 子程序]
+    scope: [backend, frontend, mobile]
+
+  - id: "field"
+    name: "field / 字段"
+    aliases: [field, 字段, 变量, variable, 属性, property, attribute, 成员变量, member]
+    scope: [backend, frontend, mobile]
+
+  - id: "package"
+    name: "package / 模块"
+    aliases: [package, 包, module, 模块, namespace, 命名空间, 组织单元]
+    scope: [backend, frontend, mobile]
+
+  - id: "dependency"
+    name: "dependency / 依赖"
+    aliases: [dependency, 依赖, import, 导入, 引用, reference, require, include]
+    scope: [backend, frontend, mobile]
+
+  - id: "interface"
+    name: "interface / 接口"
+    aliases: [interface, 接口, API, api, 契约, contract, protocol, 协议]
+    scope: [backend, frontend]
+
+  - id: "annotation"
+    name: "annotation / 注解"
+    aliases: [annotation, 注解, decorator, 装饰器, attribute, 标注]
+    scope: [backend]
+
+  - id: "exception"
+    name: "exception / 异常"
+    aliases: [exception, 异常, error, 错误, 异常处理, error handling, throw, catch]
+    scope: [backend, frontend]
+
+  - id: "threading"
+    name: "threading / 并发"
+    aliases: [threading, 线程, thread, 并发, concurrency, 异步, async, 锁, lock, 协程, coroutine, goroutine]
+    scope: [backend]
+
+  # ===== 文档办公 =====
+  - id: "excel"
+    name: "Excel"
+    aliases: [excel, Excel, xlsx, xls, 电子表格, spreadsheet, WPS表格]
+    scope: [document, data-analysis]
+
+  - id: "word"
+    name: "Word"
+    aliases: [word, Word, docx, doc, 文档编辑, WPS文字]
+    scope: [document]
+
+  - id: "ppt"
+    name: "PPT"
+    aliases: [ppt, PPT, PowerPoint, Powerpoint, 演示, presentation, 幻灯片, slides]
+    scope: [document]
+
+  - id: "markdown"
+    name: "Markdown"
+    aliases: [markdown, Markdown, md, .md]
+    scope: [document, backend, frontend]
+
+  - id: "pdf"
+    name: "PDF"
+    aliases: [pdf, PDF]
+    scope: [document]
+
+  # ===== 图表/可视化 =====
+  - id: "chart"
+    name: "图表"
+    aliases: [chart, 图表, 统计图, 柱状图, 折线图, 饼图, bar chart, line chart, pie chart]
+    scope: [data-analysis, document]
+
+  - id: "dashboard"
+    name: "仪表盘"
+    aliases: [dashboard, 仪表盘, 看板, 数据大屏]
+    scope: [data-analysis]
+
+  - id: "mermaid"
+    name: "Mermaid"
+    aliases: [mermaid, Mermaid]
+    scope: [document, architecture]

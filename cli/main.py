@@ -12,6 +12,9 @@ import os
 import sys
 import json
 import shutil
+import urllib.request
+import urllib.error
+import yaml
 from pathlib import Path
 
 import click
@@ -259,6 +262,145 @@ def _install_skills(project_root: Path) -> int:
     return count
 
 
+def _load_providers(project_root: Path) -> list[dict]:
+    """加载预设提供商列表。
+
+    查找优先级：
+    1. 用户 .mdc-hub/config/providers.yaml
+    2. 项目根 config/providers.yaml（开发模式）
+    3. 包内置 backend/presets/providers.yaml（pip 安装）
+    """
+    # 优先级1: 用户配置（可能已被自定义）
+    providers_path = project_root / ".mdc-hub" / "config" / "providers.yaml"
+    if providers_path.exists():
+        with open(providers_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+            return data.get("providers", [])
+
+    # 优先级2: 项目根 config/（开发模式源码）
+    dev_path = project_root / "config" / "providers.yaml"
+    if dev_path.is_file():
+        with open(dev_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+            return data.get("providers", [])
+
+    # 优先级3: 包内置 backend/presets/（pip 安装后）
+    try:
+        import importlib.resources
+        src = importlib.resources.files("backend") / "presets" / "providers.yaml"
+        if src.is_file():
+            data = yaml.safe_load(src.read_text(encoding="utf-8")) or {}
+            return data.get("providers", [])
+    except Exception:
+        pass
+
+    return []
+
+
+def _fetch_models(base_url: str, api_key: str) -> list[str]:
+    """调用提供商 API 获取可用模型列表。"""
+    url = base_url.rstrip("/") + "/models"
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise click.ClickException(f"获取模型列表失败 (HTTP {e.code}): {body[:200]}")
+    except Exception as e:
+        raise click.ClickException(f"获取模型列表失败: {e}")
+
+    # 兼容不同 API 返回格式
+    models = []
+    items = data.get("data", data.get("models", []))
+    for item in items:
+        model_id = item.get("id", item.get("model", ""))
+        if model_id:
+            models.append(model_id)
+    return models
+
+
+def _setup_provider(project_root: Path, config: dict):
+    """交互式配置 AI 提供商。"""
+    providers = _load_providers(project_root)
+
+    click.echo("")
+    click.echo("=" * 50)
+    click.echo("  配置 AI 提供商（用于智能扫描）")
+    click.echo("=" * 50)
+    click.echo("")
+
+    # Step 1: 选择提供商
+    click.echo("可用提供商：")
+    for i, p in enumerate(providers, 1):
+        click.echo(f"  [{i}] {p['name']}  ({p['base_url']})")
+    click.echo(f"  [c] 自定义")
+    click.echo("")
+
+    choice = click.prompt("请选择", default="1").strip()
+
+    if choice.lower() == "c":
+        provider_name = click.prompt("提供商名称")
+        base_url = click.prompt("Base URL（兼容 OpenAI 接口格式）")
+        provider_id = "custom"
+    else:
+        try:
+            idx = int(choice) - 1
+            if idx < 0 or idx >= len(providers):
+                raise ValueError
+            selected = providers[idx]
+            provider_id = selected["id"]
+            provider_name = selected["name"]
+            base_url = selected["base_url"]
+        except (ValueError, IndexError):
+            raise click.ClickException(f"无效选择: {choice}")
+
+    # Step 2: API Key
+    click.echo("")
+    api_key = click.prompt("API Key", hide_input=True)
+
+    # Step 3: 获取模型列表
+    click.echo("\n  正在获取可用模型列表...")
+    try:
+        models = _fetch_models(base_url, api_key)
+    except click.ClickException:
+        click.echo("  自动获取失败，请手动输入模型名")
+        model = click.prompt("模型名")
+        models = [model]
+
+    if not models:
+        click.echo("  未获取到模型，请手动输入")
+        model = click.prompt("模型名")
+    elif len(models) == 1:
+        model = models[0]
+        click.echo(f"  唯一可用模型: {model}")
+    else:
+        click.echo(f"\n  可用模型（共 {len(models)} 个）：")
+        for i, m in enumerate(models, 1):
+            click.echo(f"    [{i}] {m}")
+        click.echo("")
+        model_choice = click.prompt("请选择模型", default="1").strip()
+        try:
+            idx = int(model_choice) - 1
+            if idx < 0 or idx >= len(models):
+                raise ValueError
+            model = models[idx]
+        except (ValueError, IndexError):
+            model = model_choice  # 允许直接输入模型名
+
+    # Step 4: 保存
+    config["provider"] = {
+        "id": provider_id,
+        "name": provider_name,
+        "base_url": base_url,
+        "api_key": api_key,
+        "model": model,
+    }
+
+    click.echo(f"\n  ✓ 提供商已配置: {provider_name} / {model}")
+
+
 # ============================================================
 #  CLI 命令
 # ============================================================
@@ -318,8 +460,26 @@ def install(project: str, global_install: bool, dry_run: bool):
 
     if installed == 0 and not dry_run:
         click.echo("  未检测到已安装的 AI 工具。手动配置请参考 mcp-config.json\n")
-    else:
-        click.echo("  完成！重启 AI 工具后即可使用 MDC Hub。\n")
+
+    # 提供商配置
+    if not dry_run:
+        from backend.archiver import load_config as archiver_load_config, save_config as archiver_save_config
+        config = archiver_load_config(str(project_root))
+
+        existing_provider = config.get("provider", {})
+        has_provider = existing_provider.get("api_key", "")
+
+        if has_provider:
+            click.echo(f"  当前 AI 提供商: {existing_provider.get('name', '—')} / {existing_provider.get('model', '—')}")
+            if click.confirm("  是否重新配置？", default=False):
+                _setup_provider(project_root, config)
+                archiver_save_config(config, str(project_root))
+        else:
+            if click.confirm("  是否配置 AI 提供商用于智能扫描？", default=True):
+                _setup_provider(project_root, config)
+                archiver_save_config(config, str(project_root))
+
+    click.echo("\n  完成！重启 AI 工具后即可使用 MDC Hub。\n")
 
 
 @cli.command()
@@ -396,7 +556,7 @@ def graph_list(directory: str, output_json: bool):
 @graph.command("neighbors")
 @click.argument("node_id")
 @click.argument("directory", type=click.Path(exists=True, file_okay=False))
-@click.option("--depth", "-d", default=2, help="遍历深度（默认2层）")
+@click.option("--depth", "-d", default=1, help="遍历深度（默认1层）")
 @click.option("--direction", "-r", type=click.Choice(["up", "down", "both"]), default="both", help="方向：up(上游)/down(下游)/both(双向)")
 def graph_neighbors(node_id: str, directory: str, depth: int, direction: str):
     """查询节点的上下游关联。mdc-hub graph neighbors user-service ./docs -d 3"""
@@ -520,6 +680,96 @@ def _print_path(path: list[str], id_to_node: dict):
 
 
 cli.add_command(graph)
+
+
+@cli.group()
+def provider():
+    """AI 提供商配置。"""
+    pass
+
+
+@provider.command("setup")
+@click.option("--project", "-p", default=".", help="项目根目录")
+def provider_setup(project: str):
+    """交互式配置 AI 提供商。"""
+    project_root = Path(project).resolve()
+    from backend.archiver import load_config, save_config
+    config = load_config(str(project_root))
+    _setup_provider(project_root, config)
+    save_config(config, str(project_root))
+    click.echo("  配置已保存到 .mdc-hub/config/settings.yaml\n")
+
+
+cli.add_command(provider)
+
+
+@cli.command("scan")
+@click.argument("directory", type=click.Path(exists=True, file_okay=False), default=".")
+@click.option("--ext", "-e", "extensions", multiple=True, help="指定文件后缀（可多次使用），如 -e .py -e .java")
+@click.option("--chunk-size", "-c", default=None, type=int, help="AI 每次处理行数（默认从配置读取）")
+@click.option("--dry-run", is_flag=True, help="仅预览扫描计划，不实际执行 AI 调用")
+def scan(directory: str, extensions: tuple, chunk_size: int | None, dry_run: bool):
+    """扫描目录，使用 AI 分析并生成知识图谱文档。
+
+    自底向上扫描：先分析最深层的源文件，再逐层汇总目录。
+    结果归档到 .mdc-hub/docs/。
+    """
+    project_root = Path(directory).resolve()
+    from backend.archiver import find_workspace_root as find_ws, load_config as archiver_load
+
+    ws_root = find_ws(str(project_root))
+    config = archiver_load(ws_root)
+
+    # 确定后缀
+    if extensions:
+        ext_list = list(extensions)
+    else:
+        ext_list = config.get("scan", {}).get("extensions", [])
+
+    # 确定 chunk_size
+    cs = chunk_size or config.get("scan", {}).get("chunk_size", 1000)
+
+    # 检查提供商（dry-run 不需要）
+    if not dry_run:
+        provider_cfg = config.get("provider", {})
+        if not provider_cfg.get("api_key"):
+            click.echo("错误: 未配置 AI 提供商。请先运行: mdc-hub provider setup")
+            return
+        click.echo(f"\n提供商: {provider_cfg['name']} / {provider_cfg['model']}")
+
+    from backend.scan_engine import build_file_tree, plan_batches, execute_scan, _iter_files
+
+    # 构建文件树
+    click.echo("→ 构建文件树...")
+    tree = build_file_tree(str(project_root), ext_list, cs, ws_root)
+    file_count = sum(1 for _ in _iter_files(tree))
+    click.echo(f"  找到 {file_count} 个文件")
+
+    # 规划批次
+    click.echo("→ 规划扫描批次...")
+    batches = plan_batches(tree, cs)
+    click.echo(f"  共 {len(batches)} 个批次")
+
+    if dry_run:
+        click.echo("\n扫描计划（自底向上）:\n")
+        for i, b in enumerate(batches, 1):
+            click.echo(f"  [{i}] Pass {b.pass_num} | {b.description}")
+        click.echo(f"\n预计 AI 调用次数: {len(batches)}")
+        return
+
+    # 检查数量
+    if len(batches) > 50:
+        if not click.confirm(f"\n这将产生约 {len(batches)} 次 AI 调用，确认继续？"):
+            return
+
+    # 执行
+    click.echo(f"\n→ 开始扫描...\n")
+    stats = execute_scan(batches, ws_root, verbose=True)
+
+    click.echo(f"\n{'='*50}")
+    click.echo(f"扫描完成: 成功 {stats['success']}, 失败 {stats['failed']}, 共 {stats['total']}")
+    click.echo(f"文档归档: .mdc-hub/docs/")
+    click.echo(f"{'='*50}\n")
 
 
 if __name__ == "__main__":

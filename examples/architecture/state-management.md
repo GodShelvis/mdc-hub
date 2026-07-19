@@ -1,7 +1,7 @@
 ---
 id: "state-management"
 title: "前端状态管理方案选型"
-category: "技术/前端/架构"
+category: "architecture-core"
 tags: [state-management, pinia, zustand, redux]
 connections:
   - target: "react-hooks-deep-dive"

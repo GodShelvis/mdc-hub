@@ -1,7 +1,7 @@
 ---
 id: "react-hooks-deep-dive"
 title: "React Hooks 深度总结"
-category: "技术/前端/React"
+category: "frontend-core"
 tags: [react, hooks, useState, useEffect, useMemo]
 connections:
   - target: "vue-composables"
