@@ -22,8 +22,16 @@ SETTINGS_FILE = "settings.yaml"
 def find_workspace_root(start_path: Optional[str] = None) -> str:
     """向上查找项目根目录（有 .mdc-hub 或 .git 的目录）。
 
+    优先使用环境变量 MDC_HUB_WORKSPACE，其次从 start_path / cwd 向上查找。
     如果找不到，返回当前工作目录。
     """
+    # 环境变量优先
+    env_ws = os.environ.get("MDC_HUB_WORKSPACE")
+    if env_ws:
+        p = Path(env_ws).resolve()
+        if p.is_dir():
+            return str(p)
+
     current = Path(start_path or os.getcwd()).resolve()
     for parent in [current, *current.parents]:
         if (parent / HUB_DIR).is_dir() or (parent / ".git").is_dir():

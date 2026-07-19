@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "mdc-hub": {
+      "type": "local",
+      "command": [
+        "/Users/shelvis/Documents/GitHub/mdc-hub/.venv/bin/python3.13",
+        "-m",
+        "cli.main",
+        "mcp"
+      ],
+      "cwd": "/Users/shelvis/Documents/GitHub/mdc-hub"
+    }
+  }
+}

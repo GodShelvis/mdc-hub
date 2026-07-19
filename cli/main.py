@@ -143,7 +143,7 @@ def _detect_installed_tools(project_root: Path) -> dict[str, bool]:
     return detected
 
 
-def _write_json_config(path: Path, entry_key: str, command: str, format_type: str):
+def _write_json_config(path: Path, entry_key: str, command: str, format_type: str, cwd: str = ""):
     """写入或更新 JSON 格式的 MCP 配置。"""
     existing = {}
     if path.exists():
@@ -152,10 +152,20 @@ def _write_json_config(path: Path, entry_key: str, command: str, format_type: st
         except (json.JSONDecodeError, ValueError):
             pass
 
+    entry: dict = {}
+    if command.count(" ") > 0:
+        parts = command.split()
+        entry["command"] = parts[0]
+        entry["args"] = parts[1:]
+    else:
+        entry["command"] = command
+    if cwd:
+        entry["cwd"] = cwd
+
     # 根据 format 确定顶层 key
     if format_type == "mcpServers":
         servers = existing.get("mcpServers", {})
-        servers[entry_key] = {"command": command}
+        servers[entry_key] = entry
         existing["mcpServers"] = servers
     elif format_type == "mcp":
         servers = existing.get("mcp", {})
@@ -163,27 +173,31 @@ def _write_json_config(path: Path, entry_key: str, command: str, format_type: st
             "type": "local",
             "command": command.split(),
         }
+        if cwd:
+            servers[entry_key]["cwd"] = cwd
         existing["mcp"] = servers
     elif format_type == "servers":
         servers = existing.get("servers", {})
         servers[entry_key] = {
             "type": "stdio",
-            "command": command.split()[0],
-            "args": command.split()[1:] if len(command.split()) > 1 else [],
+            "command": entry.get("command", command.split()[0]),
+            "args": entry.get("args", command.split()[1:] if len(command.split()) > 1 else []),
         }
+        if cwd:
+            servers[entry_key]["cwd"] = cwd
         existing["servers"] = servers
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _write_toml_config(path: Path, entry_key: str, command: str):
+def _write_toml_config(path: Path, entry_key: str, command: str, cwd: str = ""):
     """写入或更新 TOML 格式的 MCP 配置（Codex）。"""
     existing_lines = []
     if path.exists():
         existing_lines = path.read_text(encoding="utf-8").splitlines()
 
-    # Codex TOML: [mcp_servers.name], command = "...", args = [...]
+    # Codex TOML: [mcp_servers.name], command = "...", args = [...], cwd = "..."
     section = f"[mcp_servers.{entry_key}]"
     cmd_parts = command.split()
     new_block = [
@@ -193,6 +207,8 @@ def _write_toml_config(path: Path, entry_key: str, command: str):
     if len(cmd_parts) > 1:
         args_str = ", ".join(f'"{a}"' for a in cmd_parts[1:])
         new_block.append(f"args = [{args_str}]")
+    if cwd:
+        new_block.append(f'cwd = "{cwd}"')
 
     # 替换已有 section 或追加
     new_lines = []
@@ -284,10 +300,11 @@ def install(project: str, global_install: bool, dry_run: bool):
                 continue
 
             try:
+                cwd = str(project_root)
                 if info["format"] == "toml":
-                    _write_toml_config(config_path, info["entry_key"], command)
+                    _write_toml_config(config_path, info["entry_key"], command, cwd)
                 else:
-                    _write_json_config(config_path, info["entry_key"], command, info["format"])
+                    _write_json_config(config_path, info["entry_key"], command, info["format"], cwd)
                 click.echo(f"      ✓ 已配置: {config_path}")
                 installed += 1
                 break
