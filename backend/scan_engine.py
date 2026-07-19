@@ -81,10 +81,26 @@ def build_file_tree(
     # 规范化扩展名（确保以 . 开头）
     exts = {e if e.startswith(".") else f".{e}" for e in extensions}
 
-    # 默认排除的目录
+    # 默认排除的目录（各语言构建产物/依赖/IDE 缓存等）
     SKIP_DIRS = {
-        "node_modules", ".git", "__pycache__", "dist", "build",
-        ".venv", "venv", ".mdc-hub", ".idea", ".vscode",
+        # JS/TS
+        "node_modules", ".next", ".nuxt", ".output", ".turbo",
+        # Python
+        "__pycache__", ".venv", "venv", ".eggs", ".tox",
+        ".pytest_cache", ".mypy_cache", ".ruff_cache", "site-packages",
+        # Java/JVM
+        "target", ".gradle", "gradle", "out", "bin",
+        # .NET
+        "obj",
+        # PHP
+        "vendor", "bower_components",
+        # IDE/VCS
+        ".git", ".svn", ".hg",
+        ".idea", ".vscode", ".settings", ".classpath", ".project",
+        # Build/Output
+        "dist", "build", "coverage", ".nyc_output",
+        # Misc
+        ".mdc-hub", ".cache", "generated", "tmp", "temp", ".tmp",
     }
 
     def _build(path: Path) -> FileNode:
