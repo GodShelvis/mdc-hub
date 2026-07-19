@@ -16,7 +16,7 @@
 ### 方式一：pip 安装（推荐，MCP 用户）
 
 ```bash
-pip install git+https://github.com/your-org/mdc-hub.git
+pip install git+https://github.com/GodShelvis/mdc-hub.git
 ```
 
 安装后会获得 `mdc-hub-mcp` 命令。在 AI 工具的 MCP 设置中添加：
@@ -36,7 +36,7 @@ pip install git+https://github.com/your-org/mdc-hub.git
 ### 方式二：完整安装（含 Web UI 和 Skills）
 
 ```bash
-git clone https://github.com/your-org/mdc-hub.git
+git clone https://github.com/GodShelvis/mdc-hub.git
 cd mdc-hub
 ./install.sh
 ```
