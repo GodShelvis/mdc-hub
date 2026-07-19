@@ -344,11 +344,17 @@ def mcp():
     run()
 
 
-@cli.command()
+@cli.group()
+def graph():
+    """图谱查询：遍历节点关联、查找路径。"""
+    pass
+
+
+@graph.command("list")
 @click.argument("directory", type=click.Path(exists=True, file_okay=False))
-@click.option("--json", "output_json", is_flag=True, help="以 JSON 格式输出")
-def scan(directory: str, output_json: bool):
-    """扫描目录下所有 MDC 文件，打印节点信息。纯本地，无需 AI。"""
+@click.option("--json", "output_json", is_flag=True, help="JSON 格式输出")
+def graph_list(directory: str, output_json: bool):
+    """扫描目录下所有 MDC 节点。"""
     from backend.scanner import scan_directory
 
     result = scan_directory(directory)
@@ -356,18 +362,147 @@ def scan(directory: str, output_json: bool):
         click.echo(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
         return
     click.echo(f"\n目录: {result.directory}")
-    click.echo(f"扫描到 {result.total_files} 个 MDC 节点\n")
+    click.echo(f"节点数: {result.total_files}\n")
     click.echo("-" * 70)
     for i, node in enumerate(result.nodes, 1):
         click.echo(f"\n[{i}] {node.title}")
         click.echo(f"  ID:       {node.id}")
         click.echo(f"  分类:     {node.category}")
-        click.echo(f"  标签:     {', '.join(node.tags) if node.tags else '无'}")
-        if node.connections:
-            click.echo(f"  连接:")
-            for conn in node.connections:
-                click.echo(f"    → {conn.target} ({conn.relation})")
+        click.echo(f"  标签:     {', '.join(node.tags) if node.tags else '—'}")
+        conn_count = len(node.connections)
+        if conn_count:
+            targets = ", ".join(f"{c.target}({c.relation})" for c in node.connections)
+            click.echo(f"  关联({conn_count}): {targets}")
         click.echo("-" * 70)
+
+
+@graph.command("neighbors")
+@click.argument("node_id")
+@click.argument("directory", type=click.Path(exists=True, file_okay=False))
+@click.option("--depth", "-d", default=2, help="遍历深度（默认2层）")
+@click.option("--direction", "-r", type=click.Choice(["up", "down", "both"]), default="both", help="方向：up(上游)/down(下游)/both(双向)")
+def graph_neighbors(node_id: str, directory: str, depth: int, direction: str):
+    """查询节点的上下游关联。mdc-hub graph neighbors user-service ./docs -d 3"""
+    from backend.scanner import scan_directory
+    from collections import deque
+
+    result = scan_directory(directory)
+    id_to_node = {n.id: n for n in result.nodes}
+    adj = _build_adjacency(result.nodes, direction)
+
+    if node_id not in id_to_node:
+        click.echo(f"节点 '{node_id}' 不存在。可用 ID: {', '.join(list(id_to_node)[:20])}")
+        return
+
+    # BFS 遍历
+    visited = {node_id: 0}
+    queue = deque([node_id])
+    layers = {0: [node_id]}
+
+    while queue:
+        cur = queue.popleft()
+        cur_depth = visited[cur]
+        if cur_depth >= depth:
+            continue
+        for neighbor in adj.get(cur, []):
+            if neighbor not in visited:
+                visited[neighbor] = cur_depth + 1
+                queue.append(neighbor)
+                layers.setdefault(cur_depth + 1, []).append(neighbor)
+
+    # 打印
+    node = id_to_node[node_id]
+    click.echo(f"\n  ★ {node.title}  [{node.id}]")
+    click.echo(f"    分类: {node.category}")
+    click.echo(f"    方向: {direction}, 深度: {depth}")
+    click.echo(f"    关联节点数: {len(visited) - 1}\n")
+    for d in sorted(layers):
+        if d == 0:
+            continue
+        click.echo(f"  ── 第 {d} 层 ──")
+        for nid in layers[d]:
+            n = id_to_node.get(nid)
+            if n:
+                # 找到关系
+                rels = []
+                for conn in n.connections:
+                    if conn.target in adj.get(n.id, []):
+                        rels.append(f"{conn.relation}")
+                for src in adj:
+                    if nid in adj[src] and src in visited:
+                        rels.append(f"被 {src} 关联")
+                rel_str = f" ({', '.join(rels[:2])})" if rels else ""
+                click.echo(f"    {nid} — {n.title}{rel_str}")
+    click.echo("")
+
+
+@graph.command("path")
+@click.argument("from_id")
+@click.argument("to_id")
+@click.argument("directory", type=click.Path(exists=True, file_okay=False))
+@click.option("--max-depth", "-d", default=5, help="最大搜索深度")
+def graph_path(from_id: str, to_id: str, directory: str, max_depth: int):
+    """查找两个节点间的路径。mdc-hub graph path user-dao order-service ./docs"""
+    from backend.scanner import scan_directory
+    from collections import deque
+
+    result = scan_directory(directory)
+    id_to_node = {n.id: n for n in result.nodes}
+    adj = _build_adjacency(result.nodes, "both")
+
+    if from_id not in id_to_node:
+        click.echo(f"起点 '{from_id}' 不存在")
+        return
+    if to_id not in id_to_node:
+        click.echo(f"终点 '{to_id}' 不存在")
+        return
+
+    # BFS 最短路径
+    queue = deque([[from_id]])
+    visited = {from_id}
+
+    while queue:
+        path = queue.popleft()
+        cur = path[-1]
+        if cur == to_id:
+            _print_path(path, id_to_node)
+            return
+        if len(path) >= max_depth:
+            continue
+        for neighbor in adj.get(cur, []):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(path + [neighbor])
+
+    click.echo(f"\n  在 {max_depth} 层内未找到从 {from_id} 到 {to_id} 的路径\n")
+
+
+# ---- 辅助 ----
+
+def _build_adjacency(nodes, direction: str) -> dict[str, list[str]]:
+    """构建邻接表。"""
+    adj: dict[str, list[str]] = {}
+    for n in nodes:
+        for conn in n.connections:
+            if direction in ("down", "both"):
+                adj.setdefault(n.id, []).append(conn.target)
+            if direction in ("up", "both"):
+                adj.setdefault(conn.target, []).append(n.id)
+    return adj
+
+
+def _print_path(path: list[str], id_to_node: dict):
+    """打印路径。"""
+    click.echo(f"\n  路径（{len(path) - 1} 步）：\n")
+    for i, nid in enumerate(path):
+        n = id_to_node.get(nid)
+        prefix = "  " if i == 0 else "  ↓ "
+        title = f"{n.title} [{n.id}]" if n else nid
+        click.echo(f"{prefix}{title}")
+    click.echo("")
+
+
+cli.add_command(graph)
 
 
 if __name__ == "__main__":
