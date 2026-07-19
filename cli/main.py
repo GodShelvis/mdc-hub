@@ -344,5 +344,31 @@ def mcp():
     run()
 
 
+@cli.command()
+@click.argument("directory", type=click.Path(exists=True, file_okay=False))
+@click.option("--json", "output_json", is_flag=True, help="以 JSON 格式输出")
+def scan(directory: str, output_json: bool):
+    """扫描目录下所有 MDC 文件，打印节点信息。纯本地，无需 AI。"""
+    from backend.scanner import scan_directory
+
+    result = scan_directory(directory)
+    if output_json:
+        click.echo(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+        return
+    click.echo(f"\n目录: {result.directory}")
+    click.echo(f"扫描到 {result.total_files} 个 MDC 节点\n")
+    click.echo("-" * 70)
+    for i, node in enumerate(result.nodes, 1):
+        click.echo(f"\n[{i}] {node.title}")
+        click.echo(f"  ID:       {node.id}")
+        click.echo(f"  分类:     {node.category}")
+        click.echo(f"  标签:     {', '.join(node.tags) if node.tags else '无'}")
+        if node.connections:
+            click.echo(f"  连接:")
+            for conn in node.connections:
+                click.echo(f"    → {conn.target} ({conn.relation})")
+        click.echo("-" * 70)
+
+
 if __name__ == "__main__":
     cli()
