@@ -171,6 +171,36 @@ def build_file_scan_prompt(file_path: str, content: str, chunk_info: str = "") -
 }}"""
 
 
+def build_multi_file_prompt(files: list[tuple[str, str]]) -> str:
+    """构建多文件批量扫描提示词。"""
+    sections = []
+    for rel_path, content in files:
+        sections.append(f"### 文件: `{rel_path}`\n```\n{content}\n```")
+    file_list = "\n\n".join(sections)
+
+    return f"""请同时分析以下 {len(files)} 个文件，返回一个 JSON 数组，每个元素对应一个文件：
+
+{file_list}
+
+返回 JSON 数组（只返回 JSON，不要其他文字）：
+[
+  {{
+    "file": "文件路径（保持原样）",
+    "id": "kebab-case ID",
+    "title": "文件名 — 一句话职责",
+    "category": "从预设中选择",
+    "tags": ["标签"],
+    "connections": [{{"target": "id", "relation": "依赖/调用/实现"}}],
+    "summary": "概述（≤100字）",
+    "classes": [{{"name": "类名", "role": "职责", "methods": ["签名"]}}],
+    "interfaces": ["接口名"],
+    "imports": ["依赖"],
+    "apis": ["API"]
+  }},
+  ...
+]"""
+
+
 def build_directory_summary_prompt(dir_path: str, child_docs: list[dict]) -> str:
     """构建目录级汇总提示词（汇总子文档，不重复扫源文件）。"""
     children_text = ""

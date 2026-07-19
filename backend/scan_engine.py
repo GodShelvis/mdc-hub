@@ -19,7 +19,7 @@ from backend.archiver import (
 )
 from backend.ai_service import (
     chat_sync, extract_json,
-    SCAN_SYSTEM_PROMPT, build_file_scan_prompt, build_directory_summary_prompt,
+    SCAN_SYSTEM_PROMPT, build_file_scan_prompt, build_multi_file_prompt, build_directory_summary_prompt,
 )
 
 
@@ -153,58 +153,113 @@ def build_file_tree(
 @dataclass
 class ScanBatch:
     """一个扫描批次。"""
-    node: FileNode
-    pass_num: int           # 1=结构分析, 2=生成MDC, 3=目录汇总
-    chunk_index: int = 0    # 内容分块索引（仅文件）
+    nodes: list[FileNode]       # 支持多文件合并
+    pass_num: int               # 1=结构分析, 2=生成MDC, 3=目录汇总
+    chunk_index: int = 0
     description: str = ""
+
+    @property
+    def node(self) -> FileNode:
+        """兼容单文件访问。"""
+        return self.nodes[0] if self.nodes else None
+
+
+def _max_depth(node: FileNode) -> int:
+    """计算节点的最大深度。"""
+    if not node.children:
+        return 1
+    return 1 + max(_max_depth(c) for c in node.children)
 
 
 def plan_batches(root: FileNode, chunk_size: int = 1000) -> list[ScanBatch]:
-    """自底向上规划扫描批次。
-
-    文件（两轮）：
-      - Pass 1: 结构分析 — 提取类/方法/接口/依赖
-      - Pass 2: 生成 MDC — 综合 Pass 1 的结果，生成完整 MDC 文档
-
-    目录（一轮）：
-      - Pass 3: 读取子文档摘要，生成目录级汇总
-    """
+    """自底向上规划扫描批次（深度优先，小文件合并）。"""
     batches: list[ScanBatch] = []
 
     def _plan(node: FileNode):
         if node.is_dir:
-            # 先处理所有子节点
+            # 收集子节点：按深度降序（最深先扫）
+            files_in_dir = []
+            subdirs = []
             for child in node.children:
-                _plan(child)
+                if child.is_dir:
+                    subdirs.append(child)
+                else:
+                    files_in_dir.append(child)
+
+            # 先扫子目录（深度优先：最深的先扫）
+            subdirs.sort(key=_max_depth, reverse=True)
+            for sd in subdirs:
+                _plan(sd)
+
+            # 合并小文件：同目录下总行数 ≤ chunk_size 的文件合并为一个批次
+            if files_in_dir:
+                batch_nodes = []
+                batch_lines = 0
+                for f in sorted(files_in_dir, key=lambda x: x.size_lines):
+                    if batch_lines + f.size_lines <= chunk_size:
+                        batch_nodes.append(f)
+                        batch_lines += f.size_lines
+                    else:
+                        # 当前批次满了，提交
+                        if batch_nodes:
+                            _add_file_batches(batches, batch_nodes, chunk_size)
+                        batch_nodes = [f]
+                        batch_lines = f.size_lines
+                # 最后一批
+                if batch_nodes:
+                    _add_file_batches(batches, batch_nodes, chunk_size)
+
             # 目录级别汇总（所有子节点都已扫描完成）
             if node.children:
                 batches.append(ScanBatch(
-                    node=node,
+                    nodes=[node],
                     pass_num=3,
-                    description=f"目录汇总: {node.rel_path}",
+                    description=f"目录汇总: {node.rel_path} ({len(node.children)}个子项)",
                 ))
         else:
-            # 文件结构分析（每个分块一次）
-            for ci, _ in enumerate(node.chunks):
-                chunk_label = ""
-                if len(node.chunks) > 1:
-                    chunk_label = f" 分块 {ci + 1}/{len(node.chunks)}"
-                batches.append(ScanBatch(
-                    node=node,
-                    pass_num=1,
-                    chunk_index=ci,
-                    description=f"结构分析: {node.rel_path}{chunk_label} ({node.size_lines}行)",
-                ))
-
-            # 文件 MDC 生成（整体一次，综合所有分块结果）
-            batches.append(ScanBatch(
-                node=node,
-                pass_num=2,
-                description=f"生成MDC: {node.rel_path}",
-            ))
+            # 根节点就是文件（单文件目录）
+            _add_file_batches(batches, [node], chunk_size)
 
     _plan(root)
     return batches
+
+
+def _add_file_batches(batches: list[ScanBatch], nodes: list[FileNode], chunk_size: int):
+    """为文件节点添加 Pass 1 和 Pass 2 批次。"""
+    if len(nodes) == 1:
+        node = nodes[0]
+        # 大文件分块
+        for ci, _ in enumerate(node.chunks):
+            chunk_label = f" 分块 {ci + 1}/{len(node.chunks)}" if len(node.chunks) > 1 else ""
+            batches.append(ScanBatch(
+                nodes=[node],
+                pass_num=1,
+                chunk_index=ci,
+                description=f"结构分析: {node.rel_path}{chunk_label} ({node.size_lines}行)",
+            ))
+        batches.append(ScanBatch(
+            nodes=[node],
+            pass_num=2,
+            description=f"生成MDC: {node.rel_path}",
+        ))
+    else:
+        # 多文件合并为一个 Pass 1
+        total_lines = sum(n.size_lines for n in nodes)
+        names = ", ".join(n.name for n in nodes[:3])
+        if len(nodes) > 3:
+            names += f" ...共{len(nodes)}个"
+        batches.append(ScanBatch(
+            nodes=nodes,
+            pass_num=1,
+            description=f"批量结构分析: {names} ({total_lines}行)",
+        ))
+        # 每个文件单独的 Pass 2
+        for node in nodes:
+            batches.append(ScanBatch(
+                nodes=[node],
+                pass_num=2,
+                description=f"生成MDC: {node.rel_path}",
+            ))
 
 
 # ---- 第三步：执行扫描 ----
@@ -327,40 +382,49 @@ def execute_scan(
         try:
             if batch.pass_num == 1:
                 # ---- Pass 1: 文件结构分析 ----
-                chunk = node.chunks[batch.chunk_index]
-                chunk_info = ""
-                if len(node.chunks) > 1:
-                    chunk_info = f"分块 {batch.chunk_index + 1}/{len(node.chunks)}"
-
-                prompt = build_file_scan_prompt(node.rel_path, chunk, chunk_info)
-                messages = [
-                    {"role": "system", "content": SCAN_SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ]
-                response = chat_sync(messages, temperature=0.2, max_tokens=4096)
-                data = extract_json(response)
-
-                # 合并到累计结果
-                key = node.rel_path
-                if key not in scan_results:
-                    scan_results[key] = {
-                        "id": _file_to_id(node.rel_path),
-                        "title": f"{node.name}",
-                        "category": "general",
-                        "tags": [],
-                        "connections": [],
-                        "summary": "",
-                        "classes": [],
-                        "interfaces": [],
-                        "imports": [],
-                        "apis": [],
-                    }
-                if data:
-                    _merge_scan_data(scan_results[key], data)
+                if len(batch.nodes) == 1:
+                    # 单文件
+                    node = batch.nodes[0]
+                    chunk = node.chunks[batch.chunk_index]
+                    chunk_info = ""
+                    if len(node.chunks) > 1:
+                        chunk_info = f"分块 {batch.chunk_index + 1}/{len(node.chunks)}"
+                    prompt = build_file_scan_prompt(node.rel_path, chunk, chunk_info)
+                    messages = [{"role": "system", "content": SCAN_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+                    response = chat_sync(messages, temperature=0.2, max_tokens=4096)
+                    data = extract_json(response)
+                    if data:
+                        _init_scan_result(scan_results, node)
+                        _merge_scan_data(scan_results[node.rel_path], data)
+                else:
+                    # 多文件合并
+                    file_contents = [(n.rel_path, n.chunks[0]) for n in batch.nodes]
+                    prompt = build_multi_file_prompt(file_contents)
+                    messages = [{"role": "system", "content": SCAN_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+                    response = chat_sync(messages, temperature=0.2, max_tokens=4096)
+                    results = _extract_json_array(response)
+                    for item in results:
+                        # 根据 file 字段匹配回对应的节点
+                        file_path = item.get("file", "")
+                        matched = None
+                        for n in batch.nodes:
+                            if n.rel_path == file_path or n.name == file_path:
+                                matched = n
+                                break
+                        if matched:
+                            _init_scan_result(scan_results, matched)
+                            _merge_scan_data(scan_results[matched.rel_path], item)
+                        else:
+                            # 尝试用路径模糊匹配
+                            for n in batch.nodes:
+                                if file_path in n.rel_path or n.rel_path.endswith(file_path):
+                                    _init_scan_result(scan_results, n)
+                                    _merge_scan_data(scan_results[n.rel_path], item)
+                                    break
 
                 if verbose:
-                    lines_scanned = len(chunk.split("\n"))
-                    print(f"  ✓ 分析完成 ({lines_scanned}行)")
+                    total_lines = sum(len(n.chunks[batch.chunk_index].split("\n")) if n.chunks else 0 for n in batch.nodes)
+                    print(f"  ✓ 分析完成 ({len(batch.nodes)}文件, {total_lines}行)")
 
             elif batch.pass_num == 2:
                 # ---- Pass 2: 生成 MDC 文档 ----
@@ -478,6 +542,59 @@ def _merge_scan_data(existing: dict, new_data: dict):
     for key in ["id", "title", "category", "summary"]:
         if new_data.get(key):
             existing[key] = new_data[key]
+
+
+def _init_scan_result(scan_results: dict, node: FileNode):
+    """初始化文件的扫描结果缓存。"""
+    key = node.rel_path
+    if key not in scan_results:
+        scan_results[key] = {
+            "id": _file_to_id(node.rel_path),
+            "title": f"{node.name}",
+            "category": "general",
+            "tags": [],
+            "connections": [],
+            "summary": "",
+            "classes": [],
+            "interfaces": [],
+            "imports": [],
+            "apis": [],
+        }
+
+
+def _extract_json_array(text: str) -> list[dict]:
+    """从 AI 响应中提取 JSON 数组。"""
+    import re
+    # 直接解析
+    try:
+        data = json.loads(text)
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return [data]
+    except json.JSONDecodeError:
+        pass
+    # 提取 ```json ... ``` 块
+    m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+    if m:
+        try:
+            data = json.loads(m.group(1))
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                return [data]
+        except json.JSONDecodeError:
+            pass
+    # 提取 [ ... ]
+    m = re.search(r"\[.*\]", text, re.DOTALL)
+    if m:
+        try:
+            data = json.loads(m.group(0))
+            if isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+    return []
 
 
 # ---- 便捷入口 ----
