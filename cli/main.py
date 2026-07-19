@@ -141,7 +141,8 @@ def _detect_installed_tools(project_root: Path) -> dict[str, bool]:
     for tool_id, tool_info in AI_TOOLS.items():
         for path_fn in tool_info["config_paths"]:
             path = path_fn(project_root)
-            if path.exists() or path.parent.exists():
+            # 配置文件本身存在才算检测到
+            if path.is_file():
                 detected[tool_id] = True
                 break
         else:
