@@ -244,7 +244,7 @@ def _install_skills(project_root: Path) -> int:
         # pip install 时，skills 可能在包目录
         import importlib.resources
         try:
-            skills_src = Path(str(importlib.resources.files("mdc_hub") / "skills"))
+            skills_src = Path(str(importlib.resources.files("skills")))
         except Exception:
             return 0
 
