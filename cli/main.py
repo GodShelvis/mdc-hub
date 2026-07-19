@@ -149,6 +149,29 @@ def _detect_installed_tools(project_root: Path) -> dict[str, bool]:
     return detected
 
 
+def _check_tool_configured(tool_id: str, project_root: Path) -> bool:
+    """检查某个 AI 工具是否已配置过 mdc-hub。"""
+    info = AI_TOOLS.get(tool_id)
+    if not info:
+        return False
+    for path_fn in info["config_paths"]:
+        path = path_fn(project_root)
+        if path.exists():
+            try:
+                if info["format"] == "toml":
+                    content = path.read_text(encoding="utf-8")
+                    if info["entry_key"] in content:
+                        return True
+                else:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    servers = data.get(info["format"], data.get("mcpServers", {}))
+                    if info["entry_key"] in servers:
+                        return True
+            except Exception:
+                pass
+    return False
+
+
 def _write_json_config(path: Path, entry_key: str, command: str, format_type: str, cwd: str = ""):
     """写入或更新 JSON 格式的 MCP 配置。"""
     existing = {}
@@ -446,35 +469,77 @@ def install(project: str, global_install: bool, dry_run: bool):
         from backend.archiver import ensure_hub_structure
         ensure_hub_structure(str(project_root))
 
-    # 检测工具（安装 MCP 配置）
+    # 选择并安装 MCP 配置
     if mcp_available:
         detected = _detect_installed_tools(project_root)
-        installed = 0
-        for tool_id, info in AI_TOOLS.items():
+
+        # 展示所有工具及其状态
+        click.echo("\n  检测到以下 AI 工具：\n")
+        tool_list = []
+        for i, (tool_id, info) in enumerate(AI_TOOLS.items(), 1):
             exists = detected[tool_id]
-            status = "已检测" if exists else "未检测"
-            click.echo(f"  [{status}] {info['name']}")
+            configured = _check_tool_configured(tool_id, project_root) if exists else False
+            if configured:
+                tag = "已检测, 已配置"
+            elif exists:
+                tag = "已检测, 未配置"
+            else:
+                tag = "未检测到"
+            click.echo(f"  [{i}] {info['name']:12s}  ({tag})")
+            tool_list.append((tool_id, info, exists, configured))
 
-            if not exists:
-                continue
+        click.echo(f"\n  [a] 全部已检测的工具")
+        click.echo(f"  [n] 跳过（仅安装 Skills）")
+        click.echo("")
 
+        choice = click.prompt("请选择要安装 MCP 的工具（输入编号，多选用逗号分隔，如 1,3,5）",
+                             default="n").strip()
+
+        selected_tools = []
+        if choice.lower() == "a":
+            # 选择所有已检测但未配置的
+            selected_tools = [(tid, info) for tid, info, exists, cfg in tool_list if exists and not cfg]
+            if not selected_tools:
+                click.echo("  所有已检测的工具均已配置。")
+        elif choice.lower() == "n":
+            click.echo("  跳过 MCP 配置。")
+        else:
+            # 解析编号
+            try:
+                indices = [int(x.strip()) for x in choice.split(",")]
+                for idx in indices:
+                    if 1 <= idx <= len(tool_list):
+                        tid, info, exists, cfg = tool_list[idx - 1]
+                        if not exists:
+                            if click.confirm(f"  {info['name']} 未检测到，仍要强制安装？", default=False):
+                                selected_tools.append((tid, info))
+                        elif cfg:
+                            if click.confirm(f"  {info['name']} 已配置，是否覆盖？", default=True):
+                                selected_tools.append((tid, info))
+                        else:
+                            selected_tools.append((tid, info))
+            except (ValueError, IndexError):
+                click.echo("  无效选择，跳过 MCP 配置。")
+
+        # 执行安装
+        installed = 0
+        for tool_id, info in selected_tools:
             for path_fn in info["config_paths"]:
                 config_path = path_fn(project_root)
                 if dry_run:
-                    click.echo(f"      → 将写入: {config_path}")
-                    continue
-
+                    click.echo(f"  [{info['name']}] 将写入: {config_path}")
+                    installed += 1
+                    break
                 try:
-                    cwd = str(project_root)
                     if info["format"] == "toml":
-                        _write_toml_config(config_path, info["entry_key"], command, cwd)
+                        _write_toml_config(config_path, info["entry_key"], command, str(project_root))
                     else:
-                        _write_json_config(config_path, info["entry_key"], command, info["format"], cwd)
-                    click.echo(f"      ✓ 已配置: {config_path}")
+                        _write_json_config(config_path, info["entry_key"], command, info["format"], str(project_root))
+                    click.echo(f"  [{info['name']}] ✓ 已配置: {config_path}")
                     installed += 1
                     break
                 except Exception as e:
-                    click.echo(f"      ✗ 失败: {e}")
+                    click.echo(f"  [{info['name']}] ✗ 失败: {e}")
     else:
         installed = -1  # MCP 不可用
 
