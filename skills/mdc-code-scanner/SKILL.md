@@ -44,7 +44,7 @@ description: "Scans code files (Java/Python/TS/Go etc.) and generates method-lev
 ```yaml
 id: "{class-name-kebab}"
 title: "{类名} — {一句话职责}"
-category: "backend"
+category: "backend-core"
 tags: ["java", "class", "spring-boot"]
 connections: []
 ```
@@ -69,7 +69,7 @@ connections: []
 ```yaml
 id: "{ClassName-kebab}.{methodName}"
 title: "{ClassName}.{methodName}()"
-category: "backend"
+category: "backend-core"
 tags: ["java", "function", "spring-boot"]
 connections:
   - target: "{父类id}"
