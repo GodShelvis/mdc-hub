@@ -488,19 +488,53 @@ def execute_scan(
                     response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
                     results = _extract_json_array(response)
 
-                    for item in results:
-                        file_path = item.get("file", "")
-                        matched = None
+                    if results:
+                        for item in results:
+                            file_path = item.get("file", "")
+                            matched = None
+                            for n in batch.nodes:
+                                if n.rel_path == file_path or n.name == file_path or file_path in n.rel_path:
+                                    matched = n
+                                    break
+                            if matched:
+                                final_data = item
+                                if not final_data.get("id"):
+                                    final_data["id"] = _file_to_id(matched.rel_path)
+                                scan_results[matched.rel_path] = final_data
+                                _finish_pass2(matched, final_data, ws_root, stats, dir_children, verbose)
+                    else:
+                        # 批量解析失败，降级为逐个文件生成
+                        if verbose:
+                            print(f"  ⚠ 批量MDC解析失败，降级为逐个生成...")
                         for n in batch.nodes:
-                            if n.rel_path == file_path or n.name == file_path or file_path in n.rel_path:
-                                matched = n
-                                break
-                        if matched:
-                            final_data = item
-                            if not final_data.get("id"):
-                                final_data["id"] = _file_to_id(matched.rel_path)
-                            scan_results[matched.rel_path] = final_data
-                            _finish_pass2(matched, final_data, ws_root, stats, dir_children, verbose)
+                            pass1 = scan_results.get(n.rel_path, {})
+                            summary_msg = f"""基于以下结构分析结果，为文件 `{n.rel_path}` 生成**详细的知识文档** JSON。
+
+结构分析结果：
+{json.dumps(pass1, ensure_ascii=False, indent=2)}
+
+要求：
+- summary 至少 200 字，包含核心逻辑流程
+- architecture 必须有实质内容
+- key_components 逐个列出并说明
+- 保持 id 为 {pass1.get('id', _file_to_id(n.rel_path))}
+
+请输出完整 JSON（id/title/category/tags/connections/summary/architecture/key_components/classes/interfaces/imports/apis）"""
+                            messages = [
+                                {"role": "system", "content": SCAN_SYSTEM_PROMPT},
+                                {"role": "user", "content": summary_msg},
+                            ]
+                            try:
+                                response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
+                                final_data = extract_json(response) or pass1
+                                if not final_data.get("id"):
+                                    final_data["id"] = _file_to_id(n.rel_path)
+                                scan_results[n.rel_path] = final_data
+                                _finish_pass2(n, final_data, ws_root, stats, dir_children, verbose)
+                            except Exception as e:
+                                stats["failed"] += 1
+                                if verbose:
+                                    print(f"  ✗ {n.rel_path}: {e}")
 
                     if verbose:
                         print(f"  ✓ 批量MDC完成 ({len(batch.nodes)}文件)")
