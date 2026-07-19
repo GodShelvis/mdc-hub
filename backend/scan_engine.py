@@ -81,6 +81,12 @@ def build_file_tree(
     # 规范化扩展名（确保以 . 开头）
     exts = {e if e.startswith(".") else f".{e}" for e in extensions}
 
+    # 默认排除的目录
+    SKIP_DIRS = {
+        "node_modules", ".git", "__pycache__", "dist", "build",
+        ".venv", "venv", ".mdc-hub", ".idea", ".vscode",
+    }
+
     def _build(path: Path) -> FileNode:
         rel = str(path.relative_to(ws_root)) if ws_root in path.parents or path == ws_root else path.name
         node = FileNode(
@@ -94,8 +100,8 @@ def build_file_tree(
             sub_items = []
             try:
                 for entry in sorted(path.iterdir()):
-                    # 跳过隐藏文件和 .mdc-hub
-                    if entry.name.startswith("."):
+                    # 跳过隐藏文件和排除目录
+                    if entry.name.startswith(".") or entry.name in SKIP_DIRS:
                         continue
                     if entry.is_dir():
                         sub = _build(entry)

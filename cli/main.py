@@ -432,6 +432,11 @@ def install(project: str, global_install: bool, dry_run: bool):
     click.echo(f"\n  MCP 命令: {command}")
     click.echo(f"  项目目录: {project_root}\n")
 
+    # 初始化 .mdc-hub/ 目录结构（预设配置文件）
+    if not dry_run:
+        from backend.archiver import ensure_hub_structure
+        ensure_hub_structure(str(project_root))
+
     # 检测工具
     detected = _detect_installed_tools(project_root)
 
