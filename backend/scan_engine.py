@@ -406,7 +406,7 @@ def execute_scan(
                         chunk_info = f"分块 {batch.chunk_index + 1}/{len(node.chunks)}"
                     prompt = build_file_scan_prompt(node.rel_path, chunk, chunk_info)
                     messages = [{"role": "system", "content": SCAN_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
-                    response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
+                    response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
                     data = extract_json(response)
                     if data:
                         _init_scan_result(scan_results, node)
@@ -416,7 +416,7 @@ def execute_scan(
                     file_contents = [(n.rel_path, n.chunks[0]) for n in batch.nodes]
                     prompt = build_multi_file_prompt(file_contents)
                     messages = [{"role": "system", "content": SCAN_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
-                    response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
+                    response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
                     results = _extract_json_array(response)
                     for item in results:
                         # 根据 file 字段匹配回对应的节点
@@ -449,21 +449,23 @@ def execute_scan(
                     key = node.rel_path
                     pass1 = scan_results.get(key, {})
 
-                    summary_msg = f"""基于以下结构分析结果，为文件 `{node.rel_path}` 生成最终的知识文档 JSON。
+                    summary_msg = f"""基于以下结构分析结果，为文件 `{node.rel_path}` 生成**详细的知识文档** JSON。
 
 结构分析结果：
 {json.dumps(pass1, ensure_ascii=False, indent=2)}
 
-请输出最终的完整 JSON（包含 id/title/category/tags/connections/summary/classes/interfaces/imports/apis），
-确保：
-- id 使用 {pass1.get('id', _file_to_id(node.rel_path))}
-- connections 中的 target 使用其他文件的 kebab-case ID
-- summary 精炼到 100 字以内"""
+要求：
+- summary 至少 200 字，包含核心逻辑流程
+- architecture 必须有实质内容
+- key_components 逐个列出并说明
+- 保持 id 为 {pass1.get('id', _file_to_id(node.rel_path))}
+
+请输出完整 JSON（id/title/category/tags/connections/summary/architecture/key_components/classes/interfaces/imports/apis）"""
                     messages = [
                         {"role": "system", "content": SCAN_SYSTEM_PROMPT},
                         {"role": "user", "content": summary_msg},
                     ]
-                    response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
+                    response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
                     final_data = extract_json(response) or pass1
 
                     if not final_data.get("id"):
@@ -517,7 +519,7 @@ def execute_scan(
                     {"role": "system", "content": SCAN_SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ]
-                response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
+                response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
                 data = extract_json(response)
                 if not data:
                     # 兜底：自动生成

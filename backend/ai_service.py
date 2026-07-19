@@ -124,19 +124,33 @@ def extract_json(text: str) -> dict | None:
 
 # ---- 扫描专用提示词 ----
 
-SCAN_SYSTEM_PROMPT = """你是一个代码分析助手，负责分析源代码并生成结构化的知识文档。
+SCAN_SYSTEM_PROMPT = """你是一个资深代码分析专家，负责深度分析源代码并生成高质量的结构化知识文档。
 
 你必须严格按 JSON 格式返回结果，不要包含其他文字。
 
-对于每个文件，你需要提取：
-1. 文件概述：一句话描述文件职责
-2. 结构分析：
-   - 类/接口/结构体定义（名称、注解/装饰器、继承关系）
-   - 函数/方法签名（名称、参数、返回值）
-   - 导入的依赖
-   - 关键常量和配置
-3. 逻辑分析：核心业务流程简述
-4. 对外暴露的 API/接口
+## 分析要求
+
+对每个文件进行**逐段逐点的细化分析**，不要只给一两句话的概括。具体要求：
+
+1. **文件概述**（3-5句话）：准确描述文件职责、在项目中的角色、解决了什么问题
+2. **架构说明**：详细解释文件的内部架构设计，包括：
+   - 模块/组件的组织结构
+   - 数据流和控制流
+   - 设计模式的使用
+   - 与其他模块的交互方式
+3. **结构分析**：
+   - 类/接口/结构体：名称、作用（详细说明，不是简单标签）、继承关系、关键方法及其用途
+   - 函数/方法：逐个列出签名，说明每个方法的**具体业务逻辑**（做了什么，不是泛泛的"处理数据"）
+   - 每个关键属性/状态的用途
+4. **关键组件**：逐个列出文件中的核心元素，每个附带一句话说明其作用
+5. **依赖关系**：导入的外部依赖，说明每个依赖在文件中的具体用途
+6. **对外 API**：暴露的接口/端点/公共方法，说明每个的输入输出和用途
+
+## 输出格式
+
+summary 字段要达到 **200-500字**，必须包含文件的核心逻辑流程。
+architecture 字段要有实质内容，说明架构设计。
+key_components 列出关键组件并逐个说明。
 
 文档分类（category）必须从以下预设分类中选择一个最匹配的：
 backend-core, frontend-core, mobile-core, database-core, middleware-core,
@@ -153,30 +167,32 @@ api, cli, script, build, test, deploy, ci, cd"""
 
 def build_file_scan_prompt(file_path: str, content: str, chunk_info: str = "") -> str:
     """构建单文件扫描提示词。"""
-    header = f"请分析以下源文件：`{file_path}`"
+    header = f"请深度分析以下源文件：`{file_path}`"
     if chunk_info:
         header += f"（{chunk_info}）"
 
     return f"""{header}
 
-``` 
+```
 {content}
 ```
 
-请返回 JSON：
+请逐段逐点分析，返回 JSON（summary 至少200字，architecture 必须有实质内容）：
 {{
   "id": "文件唯一 ID（kebab-case，如 user-service）",
-  "title": "文件名 — 一句话职责描述",
+  "title": "文件名 — 准确描述职责",
   "category": "从预设分类中选择",
   "tags": ["标签列表"],
   "connections": [
-    {{"target": "被引用的其他文件 id", "relation": "关系类型：依赖/调用/实现/继承/配置"}}
+    {{"target": "被引用的其他文件 id", "relation": "依赖/调用/实现/继承/配置"}}
   ],
-  "summary": "文件概述（≤100字）",
-  "classes": [{{"name": "类名", "role": "职责（Service/Controller/Model等）", "methods": ["方法签名"]}}],
-  "interfaces": ["接口/协议名"],
-  "imports": ["关键依赖"],
-  "apis": ["对外暴露的 API 端点或公共方法"]
+  "summary": "详细概述（200-500字），包含文件核心逻辑流程",
+  "architecture": "内部架构说明：模块组织、数据流、设计模式、模块交互",
+  "key_components": ["关键组件1 — 简要说明", "关键组件2 — 简要说明"],
+  "classes": [{{"name": "类名", "role": "详细职责说明（不是简单标签）", "methods": ["方法签名 — 用途说明"]}}],
+  "interfaces": ["接口名 — 用途"],
+  "imports": ["依赖 — 在文件中的用途"],
+  "apis": ["API/公共方法 — 输入输出和用途"]
 }}"""
 
 
@@ -187,24 +203,33 @@ def build_multi_file_prompt(files: list[tuple[str, str]]) -> str:
         sections.append(f"### 文件: `{rel_path}`\n```\n{content}\n```")
     file_list = "\n\n".join(sections)
 
-    return f"""请同时分析以下 {len(files)} 个文件，返回一个 JSON 数组，每个元素对应一个文件：
+    return f"""请**逐段逐点深度分析**以下 {len(files)} 个文件，每个文件返回一个详细的分析结果。返回 JSON 数组：
 
 {file_list}
+
+要求：
+- 每个文件的 summary 至少 200 字，含核心逻辑流程
+- architecture 必须有实质内容（模块组织、数据流等）
+- key_components 逐个列出并说明
+- classes 的方法要附带用途说明
+- imports/apis 要说明具体用途
 
 返回 JSON 数组（只返回 JSON，不要其他文字）：
 [
   {{
     "file": "文件路径（保持原样）",
     "id": "kebab-case ID",
-    "title": "文件名 — 一句话职责",
+    "title": "文件名 — 准确职责",
     "category": "从预设中选择",
     "tags": ["标签"],
     "connections": [{{"target": "id", "relation": "依赖/调用/实现"}}],
-    "summary": "概述（≤100字）",
-    "classes": [{{"name": "类名", "role": "职责", "methods": ["签名"]}}],
-    "interfaces": ["接口名"],
-    "imports": ["依赖"],
-    "apis": ["API"]
+    "summary": "详细概述（200-500字）",
+    "architecture": "内部架构说明",
+    "key_components": ["组件 — 说明"],
+    "classes": [{{"name": "类名", "role": "详细职责", "methods": ["签名 — 用途"]}}],
+    "interfaces": ["接口 — 用途"],
+    "imports": ["依赖 — 用途"],
+    "apis": ["API — 用途"]
   }},
   ...
 ]"""
@@ -221,32 +246,35 @@ def build_multi_file_mdc_prompt(file_analyses: list[dict]) -> str:
         sections.append(f"### 文件: `{a['rel_path']}`\n```json\n{pass1_json}\n```")
     file_blocks = "\n\n".join(sections)
 
-    return f"""基于以下 {len(file_analyses)} 个文件的结构分析结果，为每个文件生成最终的知识文档 JSON，返回一个 JSON 数组：
+    return f"""基于以下 {len(file_analyses)} 个文件的结构分析结果，为每个文件生成**详细的知识文档** JSON，返回一个 JSON 数组：
 
 {file_blocks}
+
+## 要求
+- summary 必须 200-500 字，包含文件核心逻辑流程
+- architecture 必须有实质内容
+- key_components 逐个列出并附说明
+- connections 正确关联其他文件
 
 返回 JSON 数组（只返回 JSON，不要其他文字）：
 [
   {{
     "file": "文件路径（保持原样）",
     "id": "kebab-case ID（与结构分析一致）",
-    "title": "文件名 — 一句话职责描述",
+    "title": "文件名 — 准确职责描述",
     "category": "从预设分类中选择",
     "tags": ["标签"],
     "connections": [{{"target": "其他文件id", "relation": "依赖/调用/实现/继承/配置"}}],
-    "summary": "文件概述（≤100字）",
-    "classes": [{{"name": "类名", "role": "职责", "methods": ["方法签名"]}}],
-    "interfaces": ["接口名"],
-    "imports": ["关键依赖"],
-    "apis": ["对外API"]
+    "summary": "详细概述（200-500字），含逻辑流程",
+    "architecture": "内部架构说明",
+    "key_components": ["关键组件 — 说明"],
+    "classes": [{{"name": "类名", "role": "详细职责", "methods": ["签名 — 用途"]}}],
+    "interfaces": ["接口 — 用途"],
+    "imports": ["依赖 — 用途"],
+    "apis": ["API — 用途"]
   }},
   ...
-]
-
-注意：
-- 确保每个文件的 id 与结构分析中的一致
-- connections 中的 target 使用其他文件的 kebab-case ID
-- summary 精炼到 100 字以内"""
+]"""
 
 
 def build_directory_summary_prompt(dir_path: str, child_docs: list[dict]) -> str:
@@ -255,30 +283,32 @@ def build_directory_summary_prompt(dir_path: str, child_docs: list[dict]) -> str
     for doc in child_docs:
         children_text += f"- [{doc['id']}] {doc['title']} (category: {doc.get('category', '')})\n"
         if doc.get("summary"):
-            children_text += f"  {doc['summary']}\n"
+            children_text += f"  {doc['summary'][:150]}\n"
 
     return f"""以下是目录 `{dir_path}` 下所有已扫描的子文档摘要：
 
 {children_text}
 
-请生成该目录的汇总文档，返回 JSON：
+请为该目录生成**详细的汇总知识文档**，返回 JSON：
 {{
   "id": "目录 ID（kebab-case，如 user-module）",
-  "title": "目录名 — 模块职责概述",
+  "title": "目录名 — 模块整体职责概述",
   "category": "从预设分类中选择最合适的",
   "tags": ["汇总标签"],
   "connections": [
     {{"target": "子文档 id", "relation": "包含"}},
     {{"target": "外部依赖 id", "relation": "依赖"}}
   ],
-  "summary": "模块功能概述（≤200字）",
-  "architecture": "简要的模块架构说明（如有）",
-  "key_components": ["关键组件名称列表"]
+  "summary": "模块功能概述（200-500字），说明该目录的整体职责和设计思路",
+  "architecture": "模块架构说明：各子模块之间的关系、数据流、整体设计",
+  "key_components": ["子模块1 — 说明", "子模块2 — 说明"]
 }}
 
 注意：
+- summary 必须 200-500 字，详细说明目录职责
+- architecture 说明子模块间的组织关系和交互
+- key_components 逐个列出子模块并附说明
 - connections 中必须包含所有子文档的 "包含" 关系
-- 如果子文档中有对外部模块的引用，也要在 connections 中体现
 - 基于子文档内容进行抽象总结，不要编造信息"""
 
 

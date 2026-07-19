@@ -6,219 +6,116 @@
 
 ## 特性
 
+- **一键安装离线可用** — wheel 包内置前端+Skills+预设，`pip install` 即可
+- **AI 深度扫描** — 逐段逐点分析代码，生成 200-500 字详细知识文档
+- **批量合并策略** — 自底向上 + 跨目录合并，28 文件仅需 24 次 AI 调用
+- **Web 可视化面板** — 拖拽节点、查看详细 Markdown 文档、按分类筛选
+- **暗色/亮色主题** — 完整的日夜模式支持
 - **MCP Server** — 6 个工具，AI 可直接调用扫描和分析
 - **5 个内置 Skill** — 代码/表格/文档/媒体/统筹扫描，开箱即用
-- **方法级知识图谱** — Java/Python/TS 每个方法独立节点，调用关系可视化
-- **Web 可视化面板** — 拖拽节点、查看 Markdown 渲染、按分类筛选
-- **暗色/亮色主题** — 完整的日夜模式支持
-- **Mermaid 图表** — 文档中的 Mermaid 流程图自动渲染
 
 ## 快速开始
 
-### 一键安装
+### 安装
 
 ```bash
+# 方式一：从 GitHub Release 下载 wheel 离线安装
+pip install mdc_hub-0.3.0-py3-none-any.whl
+
+# 方式二：从源码安装
+pip install "mdc-hub @ git+https://github.com/GodShelvis/mdc-hub.git"
+
+# 方式三：需要 MCP 集成
 pip install "mdc-hub[mcp] @ git+https://github.com/GodShelvis/mdc-hub.git"
-mdc-hub install
 ```
 
-`mdc-hub install` 会自动检测已安装的 AI 工具，写入 MCP 配置，并将 5 个内置 Skill 安装到对应目录（支持 Claude Desktop、Cursor、VS Code、Trae 等 9 个平台）。
-
-安装完成后，在任意 AI 工具中直接使用：
-
-> "扫描这个项目，生成知识图谱"
-
-AI 会自动调用 `mdc-directory-scanner` Skill，按 7 步流程完成扫描和归档。
-
-### 启动 Web 可视化
+### 初始化配置
 
 ```bash
-mdc-hub serve --port 8000
+mdc-hub install       # 选择 AI 工具安装 MCP 配置 + Skills
+mdc-hub provider setup  # 配置 AI 提供商（DeepSeek/OpenAI 等）
 ```
 
-打开浏览器访问 `http://localhost:8000`，即可在交互式图谱面板中查看所有 MDC 节点。
+`mdc-hub install` 会列出所有 AI 工具及其状态，让你自由选择要配置哪些。
+
+### 扫描并生成知识图谱
+
+```bash
+mdc-hub scan src --dry-run  # 预览扫描计划
+mdc-hub scan src            # 执行 AI 深度扫描
+```
+
+### 一键启动 Web
+
+```bash
+mdc-hub serve
+# 或指定项目目录
+mdc-hub serve -p /path/to/project
+```
+
+打开 `http://localhost:8000`，前端自动加载已扫描的知识文档。
 
 ## CLI 参考
 
-`mdc-hub` 提供以下子命令：
+| 命令 | 说明 |
+|------|------|
+| `mdc-hub install` | 选择 AI 工具，安装 MCP 配置 + Skills |
+| `mdc-hub serve` | 启动后端 API + 前端静态页面 |
+| `mdc-hub scan <dir>` | AI 深度扫描，生成知识图谱文档 |
+| `mdc-hub provider setup` | 交互式配置 AI 提供商 |
+| `mdc-hub graph list` | 列出 MDC 知识节点 |
+| `mdc-hub graph neighbors` | 遍历节点 N 层邻居 |
+| `mdc-hub graph path` | 查找两节点最短路径 |
 
 ### install — 安装配置
 
-自动检测 AI 工具，写入 MCP 配置，安装 Skills。
-
 ```bash
-mdc-hub install              # 自动检测并安装
-mdc-hub install --dry-run    # 仅预览，不实际写入
+mdc-hub install              # 选择工具安装
+mdc-hub install --dry-run    # 仅预览
+mdc-hub install --project ./my-project
 ```
 
-支持平台：Claude Desktop、Cursor、VS Code Insiders、VS Code、Windsurf、Trae、Trae CN、CodeBuddy、Qoder。
+交互式选择：展示所有工具（Trae/Cursor/Claude Code 等 9 个平台）的检测状态和配置状态，输入编号选择要安装的工具。
 
 ### serve — 启动 Web UI
-
-一键启动后端 API + 前端静态页面。
 
 ```bash
 mdc-hub serve                  # 默认端口 8000
 mdc-hub serve --port 3000      # 自定义端口
-mdc-hub serve --dev            # 开发模式（自动重载）
+mdc-hub serve -p ./my-project  # 指定项目目录
 ```
 
-### graph list — 列出节点
-
-列出指定目录下所有 MDC 知识图谱节点。
-
-```bash
-mdc-hub graph list ./my-project
-mdc-hub graph list ./my-project --json   # JSON 格式输出
-```
-
-示例输出（`--json`）：
-
-```json
-[
-  {"id": "user-service", "title": "UserService — 用户服务", "category": "backend-core", "tags": ["java", "service"]},
-  {"id": "user-service.findById", "title": "UserService.findById()", "category": "backend-core", "tags": ["java", "method"]},
-  {"id": "user-dao", "title": "UserDao — 用户数据访问", "category": "backend-core", "tags": ["java", "dao"]}
-]
-```
-
-### graph neighbors — 邻居遍历
-
-遍历指定节点的 N 层邻居节点，支持方向控制。
-
-```bash
-mdc-hub graph neighbors user-service ./my-project
-mdc-hub graph neighbors user-service ./my-project -d 2          # 2 层深度
-mdc-hub graph neighbors user-service ./my-project -r down       # 仅下游（被调用的）
-mdc-hub graph neighbors user-service ./my-project -r up         # 仅上游（调用方）
-mdc-hub graph neighbors user-service ./my-project -r both       # 双向（默认）
-```
-
-参数说明：
-
-| 参数 | 简写 | 说明 | 默认值 |
-|------|------|------|--------|
-| `--depth` | `-d` | 遍历深度（层数） | 1 |
-| `--relation` | `-r` | 遍历方向：`up` / `down` / `both` | `both` |
-
-示例输出：
-
-```
-Neighbors of "user-service" (depth=1, direction=both):
-
-  Upstream (调用方):
-    user-controller  [依赖]   user-service
-    admin-controller [依赖]   user-service
-
-  Downstream (被调用方):
-    user-service      [依赖]  user-dao
-    user-service      [依赖]  cache-service
-    user-service      [依赖]  email-service
-```
-
-### graph path — 最短路径
-
-查找两个节点之间的最短调用路径。
-
-```bash
-mdc-hub graph path user-controller email-service ./my-project
-mdc-hub graph path user-controller email-service ./my-project -d 5   # 限制最大深度
-```
-
-参数说明：
-
-| 参数 | 简写 | 说明 | 默认值 |
-|------|------|------|--------|
-| `--max-depth` | `-d` | 最大搜索深度 | 5 |
-
-示例输出：
-
-```
-  路径（2 步）：
-
-  Component Design Principles [component-design]
-  ↓ React Hooks Deep Dive [react-hooks-deep-dive]
-  ↓ Next.js App Router [nextjs-app-router]
-```
-
-### provider setup — 配置 AI 提供商
-
-交互式配置 AI 提供商，用于智能扫描。
-
-```bash
-mdc-hub provider setup           # 当前目录项目
-mdc-hub provider setup -p ./my-project
-```
-
-流程：
-1. 选择预设提供商（OpenAI / Anthropic / 智谱 / 通义千问 / DeepSeek / MiniMax）或自定义
-2. 输入 API Key（隐藏输入）
-3. 自动获取可用模型列表，选择模型
-
-配置保存在 `.mdc-hub/config/settings.yaml`。
+自动初始化 `.mdc-hub/` 结构，同时托管后端 API 和前端静态页面。
 
 ### scan — AI 智能扫描
-
-使用配置的 AI 提供商，自底向上扫描工作区生成知识图谱文档。
 
 ```bash
 mdc-hub scan                     # 扫描当前目录
 mdc-hub scan ./src               # 扫描指定目录
-mdc-hub scan --dry-run           # 预览扫描计划（不调 AI）
+mdc-hub scan --dry-run           # 预览扫描计划
 mdc-hub scan -e .py -e .java     # 仅扫描指定后缀
-mdc-hub scan -c 500              # 自定义分块大小
 ```
 
 扫描策略：
-- 自底向上：先扫描源文件 → 再逐层汇总目录
-- 大文件自动分块（默认 1000 行/块）
-- 每文件两轮分析：结构提取 → 文档生成
-- 目录级汇总：基于子文档摘要，不重复扫描
+- 自底向上：先分析最深层文件 → 逐层汇总目录
+- 批量合并：同深度文件一次分析，最大化 AI 利用率
+- 默认 10000 行/块，支持 29 种文件格式
+- AI 逐段逐点分析，生成 200-500 字详细文档
 
-可扫描后缀在 `.mdc-hub/config/settings.yaml` 中配置，默认支持 29 种常见格式。
+### provider setup — 配置 AI 提供商
 
-## MCP 工具
-
-以下工具由 MCP Server 暴露，AI 加载 Skill 后可直接调用：
-
-| 工具 | 描述 |
-|------|------|
-| `scan_directory` | 按文件类型扫描目录，支持类型过滤 |
-| `read_files` | 批量读取文件内容 |
-| `write_mdc_document` | 写入归档文档到 `.mdc-hub/docs/` |
-| `list_archived_documents` | 列出已归档文档 |
-| `get_workspace_info` | 获取工作区根目录和配置 |
-| `open_dashboard` | 获取 Web UI 访问地址 |
-
-## 架构
-
+```bash
+mdc-hub provider setup
 ```
-mdc-hub/
-├── skills/                  # AI Skill（复制到 .trae/skills/ 使用）
-│   ├── mdc-directory-scanner/   # 统筹入口（7步流程）
-│   ├── mdc-code-scanner/        # 代码 → 方法级节点
-│   ├── mdc-excel-scanner/       # 表格 → 表/Sheet级节点
-│   ├── mdc-doc-scanner/         # 文档 → 章节级节点
-│   └── mdc-media-scanner/       # 媒体 → 资源级节点
-├── backend/                 # Python 后端
-│   ├── mcp_server.py            # MCP Server（stdio）
-│   ├── archiver.py              # .mdc-hub/ 归档管理
-│   ├── main.py                  # FastAPI HTTP API
-│   ├── scanner.py               # MDC 文件解析
-│   ├── ai_service.py            # 通用 AI 接口（OpenAI 兼容）
-│   └── scan_engine.py           # 扫描引擎（自底向上分析）
-├── cli/                     # CLI 命令行
-│   └── main.py                  # install / serve / provider / scan / graph
-├── frontend/                # Vue 3 前端
-│   └── src/
-│       ├── components/          # 图表、文件树、分类筛选
-│       ├── stores/              # Pinia 状态管理
-│       └── utils/               # 颜色、Mermaid渲染
-├── examples/                # 示例 MDC 文档
-├── install.sh               # 一键安装
-├── mcp-config.json          # MCP 配置模板
-└── scripts/
-    └── mcp-entry.sh         # MCP Server 启动入口
+
+流程：选择提供商（OpenAI/DeepSeek/智谱/通义千问等）→ 输入 API Key → 自动获取模型列表。
+
+### graph — 图谱查询
+
+```bash
+mdc-hub graph list ./docs              # 列出节点
+mdc-hub graph neighbors user-svc ./docs -d 2  # 2层邻居
+mdc-hub graph path a b ./docs          # 最短路径
 ```
 
 ## MCP 工具
@@ -232,6 +129,31 @@ mdc-hub/
 | `get_workspace_info` | 获取工作区配置 |
 | `open_dashboard` | 获取 Web UI 地址 |
 
+## 架构
+
+```
+mdc-hub/
+├── skills/                  # 5 个内置 Skill
+│   ├── mdc-directory-scanner/   # 统筹入口
+│   ├── mdc-code-scanner/        # 代码 → 方法级节点
+│   ├── mdc-excel-scanner/       # 表格分析
+│   ├── mdc-doc-scanner/         # 文档分析
+│   └── mdc-media-scanner/       # 媒体分析
+├── backend/                 # Python 后端
+│   ├── mcp_server.py            # MCP Server（stdio）
+│   ├── archiver.py              # .mdc-hub/ 归档管理
+│   ├── main.py                  # FastAPI HTTP API
+│   ├── scanner.py               # MDC 文件解析
+│   ├── ai_service.py            # AI 接口 + 提示词
+│   ├── scan_engine.py           # 扫描引擎（自底向上批量分析）
+│   └── web_dist/                # 前端静态文件（打包到 wheel）
+├── cli/                     # CLI 命令行
+│   └── main.py                  # install / serve / provider / scan / graph
+├── frontend/                # Vue 3 前端
+├── config/                  # 预设配置
+└── .github/workflows/       # CI/CD（Release 自动构建 wheel）
+```
+
 ## 文档格式 (MDC)
 
 ```yaml
@@ -243,13 +165,17 @@ tags: [java, service, user]
 connections:
   - target: "user-dao"
     relation: "依赖"
+summary: "用户服务核心模块，负责用户注册、登录、信息管理等业务逻辑..."
 ---
 
-# Markdown 正文
+## 架构说明
+...
+
+## 关键组件
+- UserController — 处理 HTTP 请求
+- UserService — 核心业务逻辑
 ...
 ```
-
-详见 `examples/tooling/mdc-spec.md`。
 
 ## License
 
