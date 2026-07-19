@@ -2,7 +2,7 @@
 
 流程：
 1. 构建文件树（按后缀过滤）
-2. 规划扫描批次（自底向上，1000行/块）
+2. 规划扫描批次（自底向上，10000行/块）
 3. 逐批调用 AI 分析
 4. 生成 MDC 文档归档到 .mdc-hub/docs/
 """
@@ -68,7 +68,7 @@ def _read_file_chunks(file_path: str, chunk_size: int) -> list[str]:
 def build_file_tree(
     directory: str,
     extensions: list[str],
-    chunk_size: int = 1000,
+    chunk_size: int = 10000,
     workspace_root: str = "",
 ) -> FileNode:
     """递归构建文件树，只包含匹配后缀的文件。
@@ -171,56 +171,72 @@ def _max_depth(node: FileNode) -> int:
     return 1 + max(_max_depth(c) for c in node.children)
 
 
-def plan_batches(root: FileNode, chunk_size: int = 1000) -> list[ScanBatch]:
-    """自底向上规划扫描批次（深度优先，小文件合并）。"""
+def plan_batches(root: FileNode, chunk_size: int = 10000) -> list[ScanBatch]:
+    """自底向上规划扫描批次：深度优先，同层文件激进合并。
+
+    策略：
+    1. 收集所有文件，按深度降序排列（最深先扫）
+    2. 贪心合并：从头开始，累计行数 ≤ chunk_size 的文件合并为一批
+    3. 合并可跨目录（同级深度优先），最大化 AI 利用率
+    4. 每批文件有一个 Pass 1，然后各自 Pass 2
+    5. 所有文件扫完后，自底向上做目录 Pass 3
+    """
     batches: list[ScanBatch] = []
 
-    def _plan(node: FileNode):
+    # Step 1: 收集所有文件节点，按深度降序
+    all_files: list[FileNode] = []
+
+    def _collect(node: FileNode, depth: int):
         if node.is_dir:
-            # 收集子节点：按深度降序（最深先扫）
-            files_in_dir = []
-            subdirs = []
             for child in node.children:
-                if child.is_dir:
-                    subdirs.append(child)
-                else:
-                    files_in_dir.append(child)
-
-            # 先扫子目录（深度优先：最深的先扫）
-            subdirs.sort(key=_max_depth, reverse=True)
-            for sd in subdirs:
-                _plan(sd)
-
-            # 合并小文件：同目录下总行数 ≤ chunk_size 的文件合并为一个批次
-            if files_in_dir:
-                batch_nodes = []
-                batch_lines = 0
-                for f in sorted(files_in_dir, key=lambda x: x.size_lines):
-                    if batch_lines + f.size_lines <= chunk_size:
-                        batch_nodes.append(f)
-                        batch_lines += f.size_lines
-                    else:
-                        # 当前批次满了，提交
-                        if batch_nodes:
-                            _add_file_batches(batches, batch_nodes, chunk_size)
-                        batch_nodes = [f]
-                        batch_lines = f.size_lines
-                # 最后一批
-                if batch_nodes:
-                    _add_file_batches(batches, batch_nodes, chunk_size)
-
-            # 目录级别汇总（所有子节点都已扫描完成）
-            if node.children:
-                batches.append(ScanBatch(
-                    nodes=[node],
-                    pass_num=3,
-                    description=f"目录汇总: {node.rel_path} ({len(node.children)}个子项)",
-                ))
+                _collect(child, depth + 1)
         else:
-            # 根节点就是文件（单文件目录）
-            _add_file_batches(batches, [node], chunk_size)
+            all_files.append((depth, node))
 
-    _plan(root)
+    _collect(root, 0)
+    # 深度降序：最深的文件排最前
+    all_files_sorted = [n for _, n in sorted(all_files, key=lambda x: -x[0])]
+
+    # Step 2: 贪心合并文件为 Pass 1 批次
+    i = 0
+    while i < len(all_files_sorted):
+        batch_nodes = []
+        batch_lines = 0
+        while i < len(all_files_sorted):
+            f = all_files_sorted[i]
+            f_lines = f.size_lines
+            # 大文件单独处理（不合并）
+            if not batch_nodes and f_lines > chunk_size:
+                batch_nodes = [f]
+                i += 1
+                break
+            if batch_lines + f_lines <= chunk_size:
+                batch_nodes.append(f)
+                batch_lines += f_lines
+                i += 1
+            else:
+                break
+        _add_file_batches(batches, batch_nodes, chunk_size)
+
+    # Step 3: 收集所有目录，自底向上做 Pass 3
+    all_dirs: list[FileNode] = []
+
+    def _collect_dirs(node: FileNode):
+        if node.is_dir:
+            for child in node.children:
+                _collect_dirs(child)
+            if node.children:
+                all_dirs.append(node)
+
+    _collect_dirs(root)
+    for d in all_dirs:
+        if d.children:
+            batches.append(ScanBatch(
+                nodes=[d],
+                pass_num=3,
+                description=f"目录汇总: {d.rel_path} ({len(d.children)}个子项)",
+            ))
+
     return batches
 
 
@@ -602,7 +618,7 @@ def _extract_json_array(text: str) -> list[dict]:
 def scan_workspace(
     directory: str,
     extensions: list[str] | None = None,
-    chunk_size: int = 1000,
+    chunk_size: int = 10000,
     verbose: bool = True,
 ) -> dict:
     """扫描工作区入口函数。
@@ -623,8 +639,8 @@ def scan_workspace(
         config = load_config(ws_root)
         scan_cfg = config.get("scan", {})
         extensions = scan_cfg.get("extensions", [".py", ".java", ".ts", ".js", ".go"])
-        if chunk_size == 1000:  # 默认值，尝试从配置覆盖
-            chunk_size = scan_cfg.get("chunk_size", 1000)
+        if chunk_size == 10000:  # 默认值，尝试从配置覆盖
+            chunk_size = scan_cfg.get("chunk_size", 10000)
 
     if verbose:
         print(f"\n工作区: {ws_root}")

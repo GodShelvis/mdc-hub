@@ -526,6 +526,10 @@ def serve(host: str, port: int, reload: bool, dev: bool):
 
     os.chdir(str(PROJECT_ROOT))
 
+    # 初始化工作区结构
+    from backend.archiver import ensure_hub_structure
+    ensure_hub_structure()
+
     # 导入后端 app
     from backend.main import app as backend_app
 

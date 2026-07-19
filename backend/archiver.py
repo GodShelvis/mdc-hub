@@ -76,7 +76,7 @@ def load_config(workspace_root: Optional[str] = None) -> dict:
             "model": "",
         },
         "scan": {
-            "chunk_size": 1000,
+            "chunk_size": 10000,
             "extensions": [
                 ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
                 ".go", ".rs", ".vue",
@@ -185,7 +185,7 @@ def ensure_hub_structure(workspace_root: Optional[str] = None):
             "doc_dir": "docs",
             "provider": {"id": "", "name": "", "base_url": "", "api_key": "", "model": ""},
             "scan": {
-                "chunk_size": 1000,
+                "chunk_size": 10000,
                 "extensions": [
                     ".py", ".java", ".ts", ".tsx", ".js", ".jsx",
                     ".go", ".rs", ".vue",
