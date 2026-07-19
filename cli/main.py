@@ -440,7 +440,7 @@ def install(project: str, global_install: bool, dry_run: bool):
     mcp_available = _can_run_mcp()
     if not mcp_available:
         click.echo("  [注意] MCP Server 未安装（AI 工具集成需要），仅 CLI 功能可用。")
-        click.echo("         需要 MCP 请运行: pip install mdc-hub[mcp]\n")
+        click.echo("         需要 MCP 请运行: pip install mcp\n")
 
     # 初始化 .mdc-hub/ 目录结构（预设配置文件）
     if not dry_run:
@@ -633,11 +633,11 @@ def serve(host: str, port: int, reload: bool, dev: bool, project: str):
 
 @cli.command()
 def mcp():
-    """启动 MCP Server（stdio 模式，供 AI 工具调用）。需 pip install mdc-hub[mcp]。"""
+    """启动 MCP Server（stdio 模式，供 AI 工具调用）。"""
     try:
         from backend.mcp_server import run
     except ImportError:
-        click.echo("MCP Server 未安装。请运行: pip install mdc-hub[mcp]", err=True)
+        click.echo("MCP Server 未安装。请运行: pip install mcp", err=True)
         return
     os.chdir(str(PROJECT_ROOT))
     run()

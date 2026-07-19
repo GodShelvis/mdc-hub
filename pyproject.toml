@@ -25,10 +25,8 @@ dependencies = [
     "sse-starlette>=1.6",
     "typing-inspection>=0.4",
     "pyjwt>=2.10",
+    "mcp>=1.24",
 ]
-
-[project.optional-dependencies]
-mcp = ["mcp>=1.24"]
 
 [project.scripts]
 mdc-hub = "cli.main:cli"

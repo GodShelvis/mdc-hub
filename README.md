@@ -22,11 +22,8 @@
 # 方式一：从 GitHub Release 下载 wheel 离线安装
 pip install mdc_hub-0.3.0-py3-none-any.whl
 
-# 方式二：从源码安装
+# 方式二：从源码安装（含 MCP）
 pip install "mdc-hub @ git+https://github.com/GodShelvis/mdc-hub.git"
-
-# 方式三：需要 MCP 集成
-pip install "mdc-hub[mcp] @ git+https://github.com/GodShelvis/mdc-hub.git"
 ```
 
 ### 初始化配置
