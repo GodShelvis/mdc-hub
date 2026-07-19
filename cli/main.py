@@ -239,25 +239,34 @@ def _write_toml_config(path: Path, entry_key: str, command: str, cwd: str = ""):
 
 def _install_skills(project_root: Path) -> int:
     """将 skills/ 复制到各 AI 工具的 Skills 目录。"""
-    skills_src = project_root / "skills"
-    if not skills_src.is_dir():
-        # pip install 时，skills 可能在包目录
+    # 确定 skills 源目录
+    local_skills = project_root / "skills"
+    if local_skills.is_dir():
+        # 开发模式：使用项目本地的 skills/
+        skills_dirs = [(d.name, d / "SKILL.md") for d in local_skills.iterdir()
+                       if d.is_dir() and (d / "SKILL.md").exists()]
+    else:
+        # pip 安装：从包内置读取
         import importlib.resources
         try:
-            skills_src = Path(str(importlib.resources.files("skills")))
+            pkg = importlib.resources.files("skills")
+            skills_dirs = []
+            for d in pkg.iterdir():
+                if d.is_dir():
+                    md = d / "SKILL.md"
+                    if md.is_file():
+                        skills_dirs.append((d.name, md))
         except Exception:
             return 0
 
     count = 0
     for target_fn in SKILLS_TARGETS:
         dst = target_fn(project_root)
-        for skill_dir in skills_src.iterdir():
-            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
-                name = skill_dir.name
-                dst_dir = dst / name
-                dst_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(skill_dir / "SKILL.md", dst_dir / "SKILL.md")
-                count += 1
+        for name, md_path in skills_dirs:
+            dst_dir = dst / name
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(md_path), str(dst_dir / "SKILL.md"))
+            count += 1
 
     return count
 
