@@ -9,6 +9,15 @@ description: "Scans code files (Java/Python/TS/Go etc.) and generates method-lev
 
 本 Skill 是 MDC Hub 的**代码类子 Skill**，由 `mdc-directory-scanner` 调度，也可独立使用。
 
+## 分类与标签约束
+
+**强制规则**：`category` 必须从 `.mdc-hub/categories.yaml` 中选取，`tags` 从 `.mdc-hub/tags.yaml` 中选取。
+
+- 分类示例：`backend` / `frontend` / `database` / `architecture`
+- 标签示例：`java` / `spring-boot` / `mybatis` / `class` / `function`
+- 通用编程概念（class/function/field/package/dependency/interface）统一使用英文 id
+- **summary 字段**：纯文本，中文 ≤50 字 / 英文 ≤50 单词，禁止 Markdown
+
 ## 工作流程（4 步）
 
 ### 第一步：类级别扫描
@@ -35,8 +44,8 @@ description: "Scans code files (Java/Python/TS/Go etc.) and generates method-lev
 ```yaml
 id: "{class-name-kebab}"
 title: "{类名} — {一句话职责}"
-category: "技术/后端/{层级}"
-tags: ["java", "{层级}", "{模块名}"]
+category: "backend"
+tags: ["java", "class", "spring-boot"]
 connections: []
 ```
 
@@ -60,8 +69,8 @@ connections: []
 ```yaml
 id: "{ClassName-kebab}.{methodName}"
 title: "{ClassName}.{methodName}()"
-category: "技术/后端/{层级}/{类名}"
-tags: ["java", "{层级}", "{功能标签}"]
+category: "backend"
+tags: ["java", "function", "spring-boot"]
 connections:
   - target: "{父类id}"
     relation: "属于"

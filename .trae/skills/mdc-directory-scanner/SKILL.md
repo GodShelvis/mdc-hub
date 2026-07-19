@@ -26,6 +26,28 @@ description: "统筹扫描整个目录，按文件类型分流到专业子扫描
 | `get_workspace_info` | 获取工作区信息 |
 | `open_dashboard` | 获取 Web UI 地址 |
 
+## 分类与标签约束
+
+**强制规则**：生成 MDC 文档时，`category` 和 `tags` 必须从预设库中选取。
+
+### 分类库（categories）
+- 位置：`.mdc-hub/categories.yaml`
+- 用 `read_files` 读取后，从 `categories.id` 中选择最匹配的分类
+- 共 17 个预设大类，覆盖开发、办公、数据分析、项目管理等领域
+- 双语别名匹配：文档中出现"数据库"/"database"/"MySQL"均可命中 `database`
+
+### 标签库（tags）
+- 位置：`.mdc-hub/tags.yaml`
+- 用 `read_files` 读取后，从 `tags.id` 中选择 3-5 个最匹配的标签
+- 共 80+ 个预设标签，覆盖编程语言、框架、数据库、中间件、DevOps、AI/ML、办公等
+- 通用编程概念（class/function/field/package/dependency 等）仅用英文 id
+- 每个标签标注了 `scope`，明确适用领域
+
+### summary 字段约束
+- **纯文本**，禁止 Markdown 格式
+- 中文 ≤ 50 字，英文 ≤ 50 单词
+- 一句话说明文档的核心内容
+
 ## CLI 命令参考（graph 子命令）
 
 扫描完成并归档到 `.mdc-hub/docs/` 后，可通过 CLI 查询知识图谱：
@@ -51,10 +73,13 @@ mdc-hub graph path <from-id> <to-id> <dir> [-d max-depth]
 
 ### 第一步：初始化
 
-**目标**：确认工作区、创建目录结构。
+**目标**：确认工作区、加载分类与标签约束。
 
 1. 调用 `get_workspace_info` 获取工作区根目录和 `.mdc-hub/` 路径
-2. 记住 `workspace_root` 和 `docs_dir`，后续步骤要用
+2. **必须**调用 `read_files` 读取以下两个文件：
+   - `.mdc-hub/categories.yaml` — 分类库
+   - `.mdc-hub/tags.yaml` — 标签库
+3. 记住 `workspace_root` 和 `docs_dir`，后续步骤要用
 
 ### 第二步：全量扫描
 
