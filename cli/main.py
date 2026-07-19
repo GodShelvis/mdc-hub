@@ -644,9 +644,9 @@ def serve(host: str, port: int, reload: bool, dev: bool, project: str):
     uvicorn.run(backend_app, host=host, port=port, reload=reload)
 
 
-@cli.command(hidden=True)
+@cli.command()
 def mcp():
-    """启动 MCP Server（stdio 模式）。供 AI 工具内部调用。"""
+    """启动 MCP Server（stdio 模式，供 AI 工具调用）。需 pip install mdc-hub[mcp]。"""
     try:
         from backend.mcp_server import run
     except ImportError:
