@@ -39,4 +39,4 @@ include = ["backend*", "cli*", "skills*"]
 
 [tool.setuptools.package-data]
 "skills" = ["**/SKILL.md"]
-"backend" = ["**/*.py", "presets/*.yaml"]
+"backend" = ["**/*.py", "presets/*.yaml", "web_dist/**/*"]

@@ -121,15 +121,18 @@ SKILLS_TARGETS = [
 # ============================================================
 
 def _get_mcp_command() -> str:
-    """获取 MCP 启动命令。优先用 uvx，其次 python + mdc-hub-mcp。"""
-    # 检测 uv
+    """获取 MCP 启动命令。优先用 uvx，其次 python 后端。"""
     if shutil.which("uvx"):
         return "uvx mdc-hub mcp"
-    # 检测 mdc-hub-mcp 命令
     if shutil.which("mdc-hub-mcp"):
         return "mdc-hub-mcp"
-    # 兜底：python -m
+    # 兜底：python -m（需 mcp 依赖已安装）
     return f"{sys.executable} -m cli.main mcp"
+
+
+def _can_run_mcp() -> bool:
+    """检查 MCP Server 是否可用。"""
+    return shutil.which("uvx") is not None or shutil.which("mdc-hub-mcp") is not None
 
 
 def _detect_installed_tools(project_root: Path) -> dict[str, bool]:
@@ -432,40 +435,48 @@ def install(project: str, global_install: bool, dry_run: bool):
     click.echo(f"\n  MCP 命令: {command}")
     click.echo(f"  项目目录: {project_root}\n")
 
+    # MCP 可用性检查
+    mcp_available = _can_run_mcp()
+    if not mcp_available:
+        click.echo("  [注意] MCP Server 未安装（AI 工具集成需要），仅 CLI 功能可用。")
+        click.echo("         需要 MCP 请运行: pip install mdc-hub[mcp]\n")
+
     # 初始化 .mdc-hub/ 目录结构（预设配置文件）
     if not dry_run:
         from backend.archiver import ensure_hub_structure
         ensure_hub_structure(str(project_root))
 
-    # 检测工具
-    detected = _detect_installed_tools(project_root)
+    # 检测工具（安装 MCP 配置）
+    if mcp_available:
+        detected = _detect_installed_tools(project_root)
+        installed = 0
+        for tool_id, info in AI_TOOLS.items():
+            exists = detected[tool_id]
+            status = "已检测" if exists else "未检测"
+            click.echo(f"  [{status}] {info['name']}")
 
-    installed = 0
-    for tool_id, info in AI_TOOLS.items():
-        exists = detected[tool_id]
-        status = "已检测" if exists else "未检测"
-        click.echo(f"  [{status}] {info['name']}")
-
-        if not exists:
-            continue
-
-        for path_fn in info["config_paths"]:
-            config_path = path_fn(project_root)
-            if dry_run:
-                click.echo(f"      → 将写入: {config_path}")
+            if not exists:
                 continue
 
-            try:
-                cwd = str(project_root)
-                if info["format"] == "toml":
-                    _write_toml_config(config_path, info["entry_key"], command, cwd)
-                else:
-                    _write_json_config(config_path, info["entry_key"], command, info["format"], cwd)
-                click.echo(f"      ✓ 已配置: {config_path}")
-                installed += 1
-                break
-            except Exception as e:
-                click.echo(f"      ✗ 失败: {e}")
+            for path_fn in info["config_paths"]:
+                config_path = path_fn(project_root)
+                if dry_run:
+                    click.echo(f"      → 将写入: {config_path}")
+                    continue
+
+                try:
+                    cwd = str(project_root)
+                    if info["format"] == "toml":
+                        _write_toml_config(config_path, info["entry_key"], command, cwd)
+                    else:
+                        _write_json_config(config_path, info["entry_key"], command, info["format"], cwd)
+                    click.echo(f"      ✓ 已配置: {config_path}")
+                    installed += 1
+                    break
+                except Exception as e:
+                    click.echo(f"      ✗ 失败: {e}")
+    else:
+        installed = -1  # MCP 不可用
 
     # 安装 Skills
     click.echo("")
@@ -474,6 +485,8 @@ def install(project: str, global_install: bool, dry_run: bool):
 
     if installed == 0 and not dry_run:
         click.echo("  未检测到已安装的 AI 工具。手动配置请参考 mcp-config.json\n")
+    elif installed < 0:
+        pass  # MCP 不可用，已在前方提示
 
     # 提供商配置
     if not dry_run:
@@ -493,7 +506,11 @@ def install(project: str, global_install: bool, dry_run: bool):
                 _setup_provider(project_root, config)
                 archiver_save_config(config, str(project_root))
 
-    click.echo("\n  完成！重启 AI 工具后即可使用 MDC Hub。\n")
+    click.echo("\n  完成！")
+    if mcp_available:
+        click.echo("  重启 AI 工具后即可使用 MDC Hub。\n")
+    else:
+        click.echo("  请运行: mdc-hub serve 启动 Web 面板\n")
 
 
 @cli.command()
@@ -504,8 +521,8 @@ def install(project: str, global_install: bool, dry_run: bool):
 def serve(host: str, port: int, reload: bool, dev: bool):
     """启动 Mdc Hub Web 服务（后端 API + 前端静态文件）。"""
     import uvicorn
-    from fastapi import FastAPI
     from fastapi.staticfiles import StaticFiles
+    import importlib.resources
 
     os.chdir(str(PROJECT_ROOT))
 
@@ -513,13 +530,29 @@ def serve(host: str, port: int, reload: bool, dev: bool):
     from backend.main import app as backend_app
 
     if not dev:
-        # 前端静态文件托管
-        dist_dir = PROJECT_ROOT / "frontend" / "dist"
-        if dist_dir.is_dir():
-            backend_app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="static")
-            click.echo(f"  前端已打包，访问 http://localhost:{port}")
+        # 前端静态文件托管：优先包内置，其次本地开发目录
+        dist_dir = None
+        try:
+            pkg_dir = importlib.resources.files("backend") / "web_dist"
+            if pkg_dir.is_dir():
+                dist_dir = str(pkg_dir)
+        except Exception:
+            pass
+        if not dist_dir:
+            dev_dir = PROJECT_ROOT / "backend" / "web_dist"
+            if dev_dir.is_dir():
+                dist_dir = str(dev_dir)
+            else:
+                dev_dir = PROJECT_ROOT / "frontend" / "dist"
+                if dev_dir.is_dir():
+                    dist_dir = str(dev_dir)
+
+        if dist_dir:
+            backend_app.mount("/", StaticFiles(directory=dist_dir, html=True), name="static")
+            click.echo(f"  前端已就绪，访问 http://localhost:{port}")
         else:
-            click.echo(f"  前端未打包，仅 API 可用。开发模式请加 --dev")
+            click.echo(f"  前端未打包，仅 API 可用。运行 npm run build 后重试")
+
     else:
         click.echo(f"  开发模式：前端请手动 npm run dev")
 
@@ -530,8 +563,12 @@ def serve(host: str, port: int, reload: bool, dev: bool):
 @cli.command(hidden=True)
 def mcp():
     """启动 MCP Server（stdio 模式）。供 AI 工具内部调用。"""
+    try:
+        from backend.mcp_server import run
+    except ImportError:
+        click.echo("MCP Server 未安装。请运行: pip install mdc-hub[mcp]", err=True)
+        return
     os.chdir(str(PROJECT_ROOT))
-    from backend.mcp_server import run
     run()
 
 
