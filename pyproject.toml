@@ -31,7 +31,8 @@ dependencies = [
 mcp = ["mcp>=1.24"]
 
 [project.scripts]
+mdc-hub = "cli.main:cli"
 mdc-hub-mcp = "backend.mcp_server:run"
 
 [tool.setuptools.packages.find]
-include = ["backend*"]
+include = ["backend*", "cli*"]
