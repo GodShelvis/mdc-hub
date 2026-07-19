@@ -1,0 +1,1 @@
+{"root":["./src/main.ts","./src/stores/graph.ts","./src/types/index.ts","./src/app.vue","./src/components/edgelabel.vue","./src/components/filetree.vue","./src/components/knowledgegraph.vue","./src/components/layerfilter.vue","./src/components/nodecard.vue","./env.d.ts"],"errors":true,"version":"5.6.3"}

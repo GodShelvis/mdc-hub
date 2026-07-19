@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mdc-hub"
+version = "0.2.0"
+description = "Knowledge base management & visualization tool — MCP Server for AI code scanning"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "pyyaml>=6.0",
+    "httpx>=0.28",
+    "click>=8.1",
+    "watchdog>=5.0",
+    "pydantic>=2.11",
+    "python-frontmatter>=1.3",
+    "httpx-sse>=0.4",
+    "jsonschema>=4.20",
+    "pydantic-settings>=2.5",
+    "python-multipart>=0.0.9",
+    "sse-starlette>=1.6",
+    "typing-inspection>=0.4",
+    "pyjwt>=2.10",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.24"]
+
+[project.scripts]
+mdc-hub-mcp = "backend.mcp_server:run"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
