@@ -1,71 +1,230 @@
 # MDC Hub 预设分类库
-# 安装时按用户角色选择加载，AI 生成文档时 category 必须从此处选取
+# 
+# 结构：
+#   groups  — 大类分组，用于角色选择和内部管理
+#   categories — 扁平分类列表，AI 生成文档时从此处选择 id
+#
 # 双语别名：任一命中即可匹配，输出统一使用 id
 
-categories:
-  # ===== 开发领域 =====
+# ===== 角色 → 分类组映射 =====
+roles:
+  - id: "backend-dev"
+    name: "后端开发"
+    groups: [backend, database, middleware, devops, architecture, security, testing]
+
+  - id: "frontend-dev"
+    name: "前端开发"
+    groups: [frontend, ui-design, testing]
+
+  - id: "mobile-dev"
+    name: "移动端开发"
+    groups: [mobile, frontend, ui-design, testing]
+
+  - id: "fullstack-dev"
+    name: "全栈开发"
+    groups: [backend, frontend, database, middleware, devops, architecture, security, testing, ui-design]
+
+  - id: "data-engineer"
+    name: "数据工程"
+    groups: [data, database, devops]
+
+  - id: "ai-engineer"
+    name: "AI/机器学习"
+    groups: [ai-ml, data, backend, architecture]
+
+  - id: "devops-engineer"
+    name: "运维/DevOps"
+    groups: [devops, security, backend, middleware]
+
+  - id: "qa-engineer"
+    name: "测试/QA"
+    groups: [testing, backend, frontend]
+
+  - id: "office-worker"
+    name: "文档/办公"
+    groups: [document, data-analysis, ui-design]
+
+  - id: "data-analyst"
+    name: "数据分析"
+    groups: [data-analysis, document, database]
+
+  - id: "project-manager"
+    name: "项目管理"
+    groups: [management, document]
+
+  - id: "all"
+    name: "全部"
+    groups: [backend, frontend, mobile, database, middleware, devops, architecture, security, testing, ui-design, ai-ml, data, document, data-analysis, management, general]
+
+# ===== 大类分组（内部层级管理） =====
+groups:
   - id: "backend"
     name: "后端"
     aliases: [backend, back-end, back end, 后端, 服务端, 后台, server-side, server side]
+    children: [backend-core, database, middleware, devops, architecture, security]
 
   - id: "frontend"
     name: "前端"
     aliases: [frontend, front-end, front end, 前端, 客户端, web前端, client-side, client side]
+    children: [frontend-core, ui-design]
 
   - id: "mobile"
     name: "移动端"
-    aliases: [mobile, 移动端, 移动开发, iOS, Android, 安卓, 小程序, miniapp, hybrid, 跨端]
-
-  - id: "architecture"
-    name: "架构"
-    aliases: [architecture, 架构, 系统设计, system design, 微服务, microservices, micro-service, DDD, 领域驱动, 设计模式, design pattern, 分布式, distributed, SOA, 分层]
+    aliases: [mobile, 移动端, 移动开发, iOS, Android, 安卓, 小程序, miniapp, Flutter, React Native, hybrid, 跨端]
+    children: [mobile-core]
 
   - id: "database"
     name: "数据库"
-    aliases: [database, 数据库, DB, SQL, NoSQL, MySQL, PostgreSQL, MongoDB, Redis, Elasticsearch, Oracle, 存储, storage, 持久化, persistence, ORM, JDBC, connection pool]
+    aliases: [database, 数据库, DB, 存储, storage, 持久化, persistence]
+    children: [database-core]
 
   - id: "middleware"
     name: "中间件"
-    aliases: [middleware, 中间件, MQ, 消息队列, message queue, Kafka, RabbitMQ, RocketMQ, Pulsar, 缓存, cache, Redis, Memcached, 网关, gateway, API网关, 负载均衡, load balancer, Nginx, Envoy, 服务网格, service mesh]
+    aliases: [middleware, 中间件, MQ, 消息队列, 缓存, 网关]
+    children: [middleware-core]
 
   - id: "devops"
     name: "运维/DevOps"
-    aliases: [devops, DevOps, 运维, CI/CD, CI, CD, Jenkins, GitLab CI, GitHub Actions, Docker, Kubernetes, K8s, k8s, 容器, container, 云原生, cloud native, 监控, monitoring, Prometheus, Grafana, 日志, log, 部署, deploy, Terraform, Ansible, 发布, release, 灰度]
+    aliases: [devops, DevOps, 运维, CI/CD, 部署, 容器, 云原生, 监控]
+    children: [devops-core]
 
-  - id: "ai-ml"
-    name: "AI/机器学习"
-    aliases: [ai, AI, ML, machine learning, 机器学习, 深度学习, deep learning, NLP, 自然语言, CV, 计算机视觉, LLM, 大模型, GPT, Transformer, RAG, Agent, 神经网络, neural network, PyTorch, TensorFlow, 训练, training, 推理, inference, 向量, embedding, MCP, prompt, fine-tuning]
-
-  - id: "data"
-    name: "数据工程"
-    aliases: [data, 数据, 大数据, big data, ETL, Spark, Flink, Hadoop, Hive, 数据仓库, data warehouse, 数据湖, data lake, 数据管道, pipeline, Airflow, 流处理, streaming, 批处理, batch, 数据治理, BI]
+  - id: "architecture"
+    name: "架构"
+    aliases: [architecture, 架构, 系统设计, system design, 微服务, microservices, DDD, 领域驱动, 设计模式, design pattern, 分布式, distributed, SOA]
+    children: [architecture-core]
 
   - id: "security"
     name: "安全"
-    aliases: [security, 安全, 认证, auth, authentication, 授权, authorization, OAuth, JWT, SSO, 单点登录, 加密, encryption, SSL, TLS, HTTPS, 防火墙, firewall, XSS, CSRF, SQL注入, 漏洞, vulnerability, 渗透, penetration, RBAC, ACL]
+    aliases: [security, 安全, 认证, auth, 授权, 加密, OAuth, JWT, SSL, HTTPS]
+    children: [security-core]
 
   - id: "testing"
     name: "测试"
-    aliases: [testing, 测试, 单元测试, unit test, 集成测试, integration test, E2E, 端到端, 性能测试, performance, 压测, 自动化测试, TDD, BDD, JUnit, pytest, Selenium, Cypress, Playwright, 回归测试, 冒烟测试]
+    aliases: [testing, 测试, unit test, 单元测试, 集成测试, E2E, TDD, BDD, 性能测试]
+    children: [testing-core]
 
   - id: "ui-design"
     name: "UI/UX 设计"
-    aliases: [ui, UI, UX, design, 设计, 界面, 交互, 视觉, Figma, Sketch, CSS, 样式, 组件库, component library, 设计系统, design system, 响应式, responsive, 动画, animation, 用户体验]
+    aliases: [ui, UI, UX, design, 设计, 界面, 交互, 视觉, Figma, 组件库, 设计系统, CSS]
+    children: [ui-design-core]
 
-  # ===== 非开发领域 =====
+  - id: "ai-ml"
+    name: "AI/机器学习"
+    aliases: [ai, AI, ML, machine learning, 机器学习, 深度学习, LLM, 大模型, GPT, RAG, Agent, MCP]
+    children: [ai-ml-core]
+
+  - id: "data"
+    name: "数据工程"
+    aliases: [data, 数据, 大数据, big data, ETL, Spark, Flink, Hadoop, 数据仓库, 数据湖, 数据管道]
+    children: [data-core]
+
   - id: "document"
     name: "文档/办公"
-    aliases: [document, 文档, 办公, office, Word, Excel, PPT, PowerPoint, PDF, 报告, report, 模板, template, 手册, 笔记, 会议纪要, WPS]
+    aliases: [document, 文档, 办公, office, Word, Excel, PPT, PDF, 报告, 模板, WPS]
+    children: [document-core]
 
   - id: "data-analysis"
     name: "数据分析"
-    aliases: [analysis, 分析, 数据分析, data analysis, 报表, 统计, statistics, 透视表, pivot, 图表, chart, 可视化, visualization, Excel, tableau, PowerBI]
+    aliases: [analysis, 分析, 数据分析, data analysis, 报表, 统计, 图表, 可视化, visualization, tableau, PowerBI]
+    children: [data-analysis-core]
 
   - id: "management"
     name: "项目管理"
-    aliases: [management, 管理, 项目, project, 需求, requirement, 需求文档, PRD, 排期, 迭代, sprint, agile, 敏捷, 甘特图, gantt, Jira, 进度, 风险]
+    aliases: [management, 管理, 项目, 需求, 排期, 迭代, sprint, agile, 敏捷, 甘特图, PRD, Jira]
+    children: [management-core]
 
-  # ===== 通用 =====
   - id: "general"
     name: "通用"
     aliases: [general, 通用, other, 其他, misc, 杂项, 综合]
+    children: []
+
+# ===== 扁平分类列表（AI 生成文档时从这里选 id） =====
+# 安装时根据角色 role 加载对应的 groups，
+# 然后将 groups 下所有 children 展开为 flat_categories 写入用户 .mdc-hub/
+
+categories:
+  # --- 后端相关 ---
+  - id: "backend-core"
+    name: "后端"
+    aliases: [backend, back-end, back end, 后端, 服务端, 后台, server-side, server side, REST, API, Web服务]
+    parent: "backend"
+
+  - id: "database-core"
+    name: "数据库"
+    aliases: [database, 数据库, DB, MySQL, PostgreSQL, MongoDB, Oracle, SQL, NoSQL, 存储, storage, 持久化, persistence, ORM, JDBC, connection pool, 连接池]
+    parent: "database"
+
+  - id: "middleware-core"
+    name: "中间件"
+    aliases: [middleware, 中间件, MQ, 消息队列, message queue, Kafka, RabbitMQ, RocketMQ, Pulsar, 缓存, cache, Redis, Memcached, 网关, gateway, Nginx, 负载均衡, load balancer, 服务网格, service mesh]
+    parent: "middleware"
+
+  - id: "devops-core"
+    name: "运维"
+    aliases: [devops, DevOps, 运维, CI/CD, CI, CD, Jenkins, Docker, Kubernetes, K8s, k8s, 容器, container, 云原生, cloud native, 监控, monitoring, Prometheus, Grafana, 日志, log, 部署, deploy, 发布, release]
+    parent: "devops"
+
+  - id: "architecture-core"
+    name: "架构"
+    aliases: [architecture, 架构, 系统设计, system design, 微服务, microservices, micro-service, DDD, 领域驱动, 设计模式, design pattern, 分布式, distributed, SOA, 分层, 事件驱动, event-driven, CQRS]
+    parent: "architecture"
+
+  - id: "security-core"
+    name: "安全"
+    aliases: [security, 安全, 认证, auth, authentication, 授权, authorization, OAuth, JWT, SSO, 单点登录, 加密, encryption, SSL, TLS, HTTPS, XSS, CSRF, SQL注入, 漏洞, vulnerability, RBAC, ACL]
+    parent: "security"
+
+  - id: "testing-core"
+    name: "测试"
+    aliases: [testing, 测试, 单元测试, unit test, 集成测试, integration test, E2E, 端到端, 性能测试, performance, 压测, 自动化测试, TDD, BDD, 回归测试, 冒烟测试]
+    parent: "testing"
+
+  # --- 前端相关 ---
+  - id: "frontend-core"
+    name: "前端"
+    aliases: [frontend, front-end, front end, 前端, 客户端, web前端, client-side, client side, DOM, 浏览器, browser, SPA, SSR, SSG, 路由, routing, 状态管理, state management]
+    parent: "frontend"
+
+  - id: "ui-design-core"
+    name: "UI/UX 设计"
+    aliases: [ui, UI, UX, design, 设计, 界面, 交互, 视觉, Figma, Sketch, CSS, 样式, 组件库, component library, 设计系统, design system, 响应式, responsive, 动画, animation, 用户体验]
+    parent: "ui-design"
+
+  # --- 移动端 ---
+  - id: "mobile-core"
+    name: "移动端"
+    aliases: [mobile, 移动端, 移动开发, iOS, Android, 安卓, 小程序, miniapp, Flutter, React Native, hybrid, 跨端, WebView, 原生, native]
+    parent: "mobile"
+
+  # --- 数据 ---
+  - id: "data-core"
+    name: "数据工程"
+    aliases: [data, 数据, 大数据, big data, ETL, Spark, Flink, Hadoop, Hive, 数据仓库, data warehouse, 数据湖, data lake, 数据管道, pipeline, Airflow, 流处理, streaming, 批处理, batch, 数据治理, BI]
+    parent: "data"
+
+  - id: "data-analysis-core"
+    name: "数据分析"
+    aliases: [analysis, 分析, 数据分析, data analysis, 报表, 统计, statistics, 透视表, pivot, 图表, chart, 可视化, visualization, Excel, tableau, PowerBI]
+    parent: "data-analysis"
+
+  # --- AI ---
+  - id: "ai-ml-core"
+    name: "AI/机器学习"
+    aliases: [ai, AI, ML, machine learning, 机器学习, 深度学习, deep learning, NLP, 自然语言, CV, 计算机视觉, LLM, 大模型, GPT, Transformer, RAG, Agent, 神经网络, neural network, PyTorch, TensorFlow, 训练, training, 推理, inference, MCP, prompt]
+    parent: "ai-ml"
+
+  # --- 办公 ---
+  - id: "document-core"
+    name: "文档/办公"
+    aliases: [document, 文档, 办公, office, Word, Excel, PPT, PowerPoint, PDF, 报告, report, 模板, template, 手册, 笔记, 会议纪要, WPS, 公文]
+    parent: "document"
+
+  - id: "management-core"
+    name: "项目管理"
+    aliases: [management, 管理, 项目, project, 需求, requirement, 需求文档, PRD, 排期, 迭代, sprint, agile, 敏捷, 甘特图, gantt, Jira, 进度, 风险, 里程碑]
+    parent: "management"
+
+  - id: "general"
+    name: "通用"
+    aliases: [general, 通用, other, 其他, misc, 杂项, 综合]
+    parent: "general"
