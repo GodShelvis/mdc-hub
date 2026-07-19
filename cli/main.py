@@ -30,14 +30,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # ============================================================
 
 AI_TOOLS = {
-    "trae": {
-        "name": "Trae IDE",
-        "config_paths": [
-            lambda root: root / ".trae" / "mcp.json",
-        ],
-        "format": "mcpServers",
-        "entry_key": "mdc-hub",
-    },
     "claude_code": {
         "name": "Claude Code",
         "config_paths": [
@@ -51,72 +43,17 @@ AI_TOOLS = {
         "config_paths": [
             lambda root: root / "opencode.jsonc",
             lambda root: root / "opencode.json",
-            lambda root: Path.home() / ".config" / "opencode" / "config.jsonc",
+            lambda root: Path.home() / ".config" / "opencode" / "opencode.jsonc",
         ],
-        "format": "mcp",
-        "entry_key": "mdc-hub",
-    },
-    "cursor": {
-        "name": "Cursor",
-        "config_paths": [
-            lambda root: Path.home() / ".cursor" / "mcp.json",
-        ],
-        "format": "mcpServers",
-        "entry_key": "mdc-hub",
-    },
-    "codex": {
-        "name": "Codex CLI",
-        "config_paths": [
-            lambda root: root / ".codex" / "config.toml",
-            lambda root: Path.home() / ".codex" / "config.toml",
-        ],
-        "format": "toml",
-        "entry_key": "mdc-hub",
-    },
-    "workbuddy": {
-        "name": "WorkBuddy",
-        "config_paths": [
-            lambda root: Path.home() / ".workbuddy" / "mcp.json",
-        ],
-        "format": "mcp",
-        "entry_key": "mdc-hub",
-    },
-    "codebuddy": {
-        "name": "CodeBuddy",
-        "config_paths": [
-            lambda root: root / ".mcp.json",
-            lambda root: Path.home() / ".codebuddy" / ".mcp.json",
-        ],
-        "format": "mcpServers",
-        "entry_key": "mdc-hub",
-    },
-    "windsurf": {
-        "name": "Windsurf",
-        "config_paths": [
-            lambda root: Path.home() / ".codeium" / "windsurf" / "mcp_config.json",
-        ],
-        "format": "mcpServers",
-        "entry_key": "mdc-hub",
-    },
-    "jetbrains": {
-        "name": "JetBrains",
-        "config_paths": [
-            lambda root: Path.home() / ".jetbrains" / "mcp.json",
-        ],
-        "format": "mcpServers",
+        "format": "opencode",
         "entry_key": "mdc-hub",
     },
 }
 
-# Skills 安装目标（按工具映射，全部使用项目路径）
+# Skills 安装目标（按工具映射，全部项目路径）
 SKILLS_TARGETS_ALL = {
-    "trae":       [lambda root: root / ".trae" / "skills"],
     "claude_code": [lambda root: root / ".claude" / "skills"],
-    "codebuddy":  [lambda root: root / ".codebuddy" / "skills"],
-    "cursor":     [lambda root: root / ".cursor" / "skills"],
-    "windsurf":   [lambda root: root / ".windsurf" / "skills"],
-    # 通用兜底
-    "_default":   [lambda root: root / ".agents" / "skills"],
+    "opencode":    [lambda root: root / ".opencode" / "skills"],
 }
 
 # 列出所有工具的 Skills 目标（install 全部时使用）
@@ -172,7 +109,9 @@ def _check_tool_configured(tool_id: str, project_root: Path) -> bool:
                         return True
                 else:
                     data = json.loads(path.read_text(encoding="utf-8"))
-                    servers = data.get(info["format"], data.get("mcpServers", {}))
+                    # opencode 和 mcp 格式用 "mcp" 顶层 key
+                    top_key = "mcp" if info["format"] in ("mcp", "opencode") else info["format"]
+                    servers = data.get(top_key, data.get("mcpServers", {}))
                     if info["entry_key"] in servers:
                         return True
             except Exception:
@@ -209,6 +148,17 @@ def _write_json_config(path: Path, entry_key: str, command: str, format_type: st
         servers[entry_key] = {
             "type": "local",
             "command": command.split(),
+        }
+        if cwd:
+            servers[entry_key]["cwd"] = cwd
+        existing["mcp"] = servers
+    elif format_type == "opencode":
+        # OpenCode: mcp key, type=local, enabled=true
+        servers = existing.get("mcp", {})
+        servers[entry_key] = {
+            "type": "local",
+            "command": command.split(),
+            "enabled": True,
         }
         if cwd:
             servers[entry_key]["cwd"] = cwd
@@ -304,9 +254,10 @@ def _install_skills(project_root: Path, tool_ids: list[str] | None = None) -> in
         targets = [(fn(project_root), "") for fn_list in SKILLS_TARGETS_ALL.values() for fn in fn_list]
     else:
         for tid in tool_ids:
-            fn_list = SKILLS_TARGETS_ALL.get(tid, SKILLS_TARGETS_ALL["_default"])
-            for fn in fn_list:
-                targets.append((fn(project_root), tid))
+            fn_list = SKILLS_TARGETS_ALL.get(tid)
+            if fn_list:
+                for fn in fn_list:
+                    targets.append((fn(project_root), tid))
 
     count = 0
     seen = set()
