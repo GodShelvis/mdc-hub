@@ -108,15 +108,15 @@ AI_TOOLS = {
     },
 }
 
-# Skills 安装目标（按工具映射）
+# Skills 安装目标（按工具映射，全部使用项目路径）
 SKILLS_TARGETS_ALL = {
     "trae":       [lambda root: root / ".trae" / "skills"],
-    "claude_code": [lambda root: Path.home() / ".claude" / "skills"],
+    "claude_code": [lambda root: root / ".claude" / "skills"],
     "codebuddy":  [lambda root: root / ".codebuddy" / "skills"],
-    "cursor":     [lambda root: Path.home() / ".cursor" / "skills"],
-    "windsurf":   [lambda root: Path.home() / ".windsurf" / "skills"],
+    "cursor":     [lambda root: root / ".cursor" / "skills"],
+    "windsurf":   [lambda root: root / ".windsurf" / "skills"],
     # 通用兜底
-    "_default":   [lambda root: Path.home() / ".agents" / "skills"],
+    "_default":   [lambda root: root / ".agents" / "skills"],
 }
 
 # 列出所有工具的 Skills 目标（install 全部时使用）
