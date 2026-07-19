@@ -19,7 +19,8 @@ from backend.archiver import (
 )
 from backend.ai_service import (
     chat_sync, extract_json,
-    SCAN_SYSTEM_PROMPT, build_file_scan_prompt, build_multi_file_prompt, build_directory_summary_prompt,
+    SCAN_SYSTEM_PROMPT, build_file_scan_prompt, build_multi_file_prompt,
+    build_multi_file_mdc_prompt, build_directory_summary_prompt,
 )
 
 
@@ -241,7 +242,7 @@ def plan_batches(root: FileNode, chunk_size: int = 10000) -> list[ScanBatch]:
 
 
 def _add_file_batches(batches: list[ScanBatch], nodes: list[FileNode], chunk_size: int):
-    """为文件节点添加 Pass 1 和 Pass 2 批次。"""
+    """为文件节点添加 Pass 1 和 Pass 2 批次。多文件合并时 Pass 2 也批量生成。"""
     if len(nodes) == 1:
         node = nodes[0]
         # 大文件分块
@@ -259,7 +260,7 @@ def _add_file_batches(batches: list[ScanBatch], nodes: list[FileNode], chunk_siz
             description=f"生成MDC: {node.rel_path}",
         ))
     else:
-        # 多文件合并为一个 Pass 1
+        # 多文件：Pass 1 + Pass 2 都批量合并
         total_lines = sum(n.size_lines for n in nodes)
         names = ", ".join(n.name for n in nodes[:3])
         if len(nodes) > 3:
@@ -269,13 +270,11 @@ def _add_file_batches(batches: list[ScanBatch], nodes: list[FileNode], chunk_siz
             pass_num=1,
             description=f"批量结构分析: {names} ({total_lines}行)",
         ))
-        # 每个文件单独的 Pass 2
-        for node in nodes:
-            batches.append(ScanBatch(
-                nodes=[node],
-                pass_num=2,
-                description=f"生成MDC: {node.rel_path}",
-            ))
+        batches.append(ScanBatch(
+            nodes=nodes,
+            pass_num=2,
+            description=f"批量生成MDC: {names}",
+        ))
 
 
 # ---- 第三步：执行扫描 ----
@@ -407,7 +406,7 @@ def execute_scan(
                         chunk_info = f"分块 {batch.chunk_index + 1}/{len(node.chunks)}"
                     prompt = build_file_scan_prompt(node.rel_path, chunk, chunk_info)
                     messages = [{"role": "system", "content": SCAN_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
-                    response = chat_sync(messages, temperature=0.2, max_tokens=4096)
+                    response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
                     data = extract_json(response)
                     if data:
                         _init_scan_result(scan_results, node)
@@ -417,7 +416,7 @@ def execute_scan(
                     file_contents = [(n.rel_path, n.chunks[0]) for n in batch.nodes]
                     prompt = build_multi_file_prompt(file_contents)
                     messages = [{"role": "system", "content": SCAN_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
-                    response = chat_sync(messages, temperature=0.2, max_tokens=4096)
+                    response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
                     results = _extract_json_array(response)
                     for item in results:
                         # 根据 file 字段匹配回对应的节点
@@ -443,12 +442,14 @@ def execute_scan(
                     print(f"  ✓ 分析完成 ({len(batch.nodes)}文件, {total_lines}行)")
 
             elif batch.pass_num == 2:
-                # ---- Pass 2: 生成 MDC 文档 ----
-                key = node.rel_path
-                pass1 = scan_results.get(key, {})
+                # ---- Pass 2: 生成 MDC 文档（支持批量） ----
+                if len(batch.nodes) == 1:
+                    # 单文件 MDC
+                    node = batch.nodes[0]
+                    key = node.rel_path
+                    pass1 = scan_results.get(key, {})
 
-                # 用综合提示词让 AI 生成最终 MDC
-                summary_msg = f"""基于以下结构分析结果，为文件 `{node.rel_path}` 生成最终的知识文档 JSON。
+                    summary_msg = f"""基于以下结构分析结果，为文件 `{node.rel_path}` 生成最终的知识文档 JSON。
 
 结构分析结果：
 {json.dumps(pass1, ensure_ascii=False, indent=2)}
@@ -458,35 +459,49 @@ def execute_scan(
 - id 使用 {pass1.get('id', _file_to_id(node.rel_path))}
 - connections 中的 target 使用其他文件的 kebab-case ID
 - summary 精炼到 100 字以内"""
-                messages = [
-                    {"role": "system", "content": SCAN_SYSTEM_PROMPT},
-                    {"role": "user", "content": summary_msg},
-                ]
-                response = chat_sync(messages, temperature=0.2, max_tokens=4096)
-                final_data = extract_json(response) or pass1
+                    messages = [
+                        {"role": "system", "content": SCAN_SYSTEM_PROMPT},
+                        {"role": "user", "content": summary_msg},
+                    ]
+                    response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
+                    final_data = extract_json(response) or pass1
 
-                # 确保 id 正确
-                if not final_data.get("id"):
-                    final_data["id"] = _file_to_id(node.rel_path)
+                    if not final_data.get("id"):
+                        final_data["id"] = _file_to_id(node.rel_path)
 
-                scan_results[key] = final_data
+                    scan_results[key] = final_data
+                    _finish_pass2(node, final_data, ws_root, stats, dir_children, verbose)
+                else:
+                    # 多文件批量 MDC 生成
+                    analyses = []
+                    for n in batch.nodes:
+                        pass1 = scan_results.get(n.rel_path, {})
+                        analyses.append({"rel_path": n.rel_path, "pass1": pass1})
 
-                # 保存 MDC 文档
-                doc_path = _save_mdc_doc(final_data, node.rel_path, ws_root)
-                node.doc_id = final_data["id"]
-                node.doc_data = final_data
-                node.scanned = True
-                stats["success"] += 1
-                stats["docs"].append({"path": doc_path, "id": final_data["id"], "title": final_data.get("title", "")})
+                    prompt = build_multi_file_mdc_prompt(analyses)
+                    messages = [
+                        {"role": "system", "content": SCAN_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ]
+                    response = chat_sync(messages, temperature=0.2, max_tokens=8192, workspace_root=ws_root)
+                    results = _extract_json_array(response)
 
-                # 记录到父目录
-                parent_rel = str(Path(node.rel_path).parent)
-                if parent_rel not in dir_children:
-                    dir_children[parent_rel] = []
-                dir_children[parent_rel].append(final_data)
+                    for item in results:
+                        file_path = item.get("file", "")
+                        matched = None
+                        for n in batch.nodes:
+                            if n.rel_path == file_path or n.name == file_path or file_path in n.rel_path:
+                                matched = n
+                                break
+                        if matched:
+                            final_data = item
+                            if not final_data.get("id"):
+                                final_data["id"] = _file_to_id(matched.rel_path)
+                            scan_results[matched.rel_path] = final_data
+                            _finish_pass2(matched, final_data, ws_root, stats, dir_children, verbose)
 
-                if verbose:
-                    print(f"  ✓ MDC 已保存: {node.doc_id}")
+                    if verbose:
+                        print(f"  ✓ 批量MDC完成 ({len(batch.nodes)}文件)")
 
             elif batch.pass_num == 3:
                 # ---- Pass 3: 目录汇总 ----
@@ -502,7 +517,7 @@ def execute_scan(
                     {"role": "system", "content": SCAN_SYSTEM_PROMPT},
                     {"role": "user", "content": prompt},
                 ]
-                response = chat_sync(messages, temperature=0.2, max_tokens=4096)
+                response = chat_sync(messages, temperature=0.2, max_tokens=4096, workspace_root=ws_root)
                 data = extract_json(response)
                 if not data:
                     # 兜底：自动生成
@@ -558,6 +573,26 @@ def _merge_scan_data(existing: dict, new_data: dict):
     for key in ["id", "title", "category", "summary"]:
         if new_data.get(key):
             existing[key] = new_data[key]
+
+
+def _finish_pass2(node: FileNode, final_data: dict, ws_root: str,
+                   stats: dict, dir_children: dict, verbose: bool):
+    """完成 Pass 2：保存 MDC 文档、更新统计。"""
+    doc_path = _save_mdc_doc(final_data, node.rel_path, ws_root)
+    node.doc_id = final_data["id"]
+    node.doc_data = final_data
+    node.scanned = True
+    stats["success"] += 1
+    stats["docs"].append({"path": doc_path, "id": final_data["id"], "title": final_data.get("title", "")})
+
+    # 记录到父目录
+    parent_rel = str(Path(node.rel_path).parent)
+    if parent_rel not in dir_children:
+        dir_children[parent_rel] = []
+    dir_children[parent_rel].append(final_data)
+
+    if verbose:
+        print(f"  ✓ MDC 已保存: {node.doc_id}")
 
 
 def _init_scan_result(scan_results: dict, node: FileNode):

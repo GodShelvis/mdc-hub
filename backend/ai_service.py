@@ -39,6 +39,7 @@ async def chat(
     messages: list[dict],
     temperature: float = 0.3,
     max_tokens: int = 4096,
+    workspace_root: str = "",
 ) -> str:
     """调用 AI 聊天接口，返回文本内容。
 
@@ -46,11 +47,18 @@ async def chat(
         messages: [{"role": "system"|"user", "content": "..."}]
         temperature: 随机性（0-2）
         max_tokens: 最大输出 token 数
+        workspace_root: 工作区根目录（用于读取配置）
 
     Returns:
         AI 返回的文本
     """
-    provider = _get_provider_config_or_raise()
+    provider = _get_provider_config(workspace_root)
+    if not provider:
+        raise RuntimeError(
+            "未配置 AI 提供商。请先运行:\n"
+            "  mdc-hub provider setup\n"
+            "或\n  mdc-hub install"
+        )
     base_url = provider["base_url"].rstrip("/")
     api_key = provider["api_key"]
     model = provider["model"]
@@ -78,10 +86,11 @@ def chat_sync(
     messages: list[dict],
     temperature: float = 0.3,
     max_tokens: int = 4096,
+    workspace_root: str = "",
 ) -> str:
     """同步版 chat，用于 CLI 命令。"""
     import asyncio
-    return asyncio.run(chat(messages, temperature, max_tokens))
+    return asyncio.run(chat(messages, temperature, max_tokens, workspace_root))
 
 
 # ---- 辅助 ----
@@ -199,6 +208,45 @@ def build_multi_file_prompt(files: list[tuple[str, str]]) -> str:
   }},
   ...
 ]"""
+
+
+def build_multi_file_mdc_prompt(file_analyses: list[dict]) -> str:
+    """构建多文件批量 MDC 生成提示词。
+    
+    将 Pass 1 的结构分析结果合并，一次 AI 调用生成多个文件的最终 MDC 文档。
+    """
+    sections = []
+    for a in file_analyses:
+        pass1_json = json.dumps(a["pass1"], ensure_ascii=False, indent=2)
+        sections.append(f"### 文件: `{a['rel_path']}`\n```json\n{pass1_json}\n```")
+    file_blocks = "\n\n".join(sections)
+
+    return f"""基于以下 {len(file_analyses)} 个文件的结构分析结果，为每个文件生成最终的知识文档 JSON，返回一个 JSON 数组：
+
+{file_blocks}
+
+返回 JSON 数组（只返回 JSON，不要其他文字）：
+[
+  {{
+    "file": "文件路径（保持原样）",
+    "id": "kebab-case ID（与结构分析一致）",
+    "title": "文件名 — 一句话职责描述",
+    "category": "从预设分类中选择",
+    "tags": ["标签"],
+    "connections": [{{"target": "其他文件id", "relation": "依赖/调用/实现/继承/配置"}}],
+    "summary": "文件概述（≤100字）",
+    "classes": [{{"name": "类名", "role": "职责", "methods": ["方法签名"]}}],
+    "interfaces": ["接口名"],
+    "imports": ["关键依赖"],
+    "apis": ["对外API"]
+  }},
+  ...
+]
+
+注意：
+- 确保每个文件的 id 与结构分析中的一致
+- connections 中的 target 使用其他文件的 kebab-case ID
+- summary 精炼到 100 字以内"""
 
 
 def build_directory_summary_prompt(dir_path: str, child_docs: list[dict]) -> str:

@@ -518,17 +518,30 @@ def install(project: str, global_install: bool, dry_run: bool):
 @click.option("--port", default=8000, help="监听端口")
 @click.option("--reload", is_flag=True, help="开发模式热重载")
 @click.option("--dev", is_flag=True, help="开发模式：前端单独用 Vite")
-def serve(host: str, port: int, reload: bool, dev: bool):
+@click.option("--project", "-p", default=None, help="项目目录（默认当前目录）")
+def serve(host: str, port: int, reload: bool, dev: bool, project: str):
     """启动 Mdc Hub Web 服务（后端 API + 前端静态文件）。"""
     import uvicorn
     from fastapi.staticfiles import StaticFiles
     import importlib.resources
 
+    # 保存用户的项目目录（用于工作区检测）
+    user_cwd = os.getcwd()
+    if project:
+        user_project = os.path.abspath(project)
+    else:
+        user_project = user_cwd
+
+    # 切换到包目录以支持开发模式导入
     os.chdir(str(PROJECT_ROOT))
 
-    # 初始化工作区结构
-    from backend.archiver import ensure_hub_structure
-    ensure_hub_structure()
+    # 在用户项目目录中初始化工作区结构
+    from backend.archiver import ensure_hub_structure, find_workspace_root
+    ensure_hub_structure(user_project)
+    ws_root = find_workspace_root(user_project)
+
+    # 设置环境变量，让后端 API 使用正确的工作区
+    os.environ["MDC_HUB_WORKSPACE"] = ws_root
 
     # 导入后端 app
     from backend.main import app as backend_app
@@ -560,7 +573,9 @@ def serve(host: str, port: int, reload: bool, dev: bool):
     else:
         click.echo(f"  开发模式：前端请手动 npm run dev")
 
-    click.echo(f"\n  API:  http://localhost:{port}/api/health")
+    click.echo(f"  工作区: {ws_root}")
+    click.echo(f"  API:  http://localhost:{port}/api/health")
+    click.echo(f"  Web:  http://localhost:{port}")
     uvicorn.run(backend_app, host=host, port=port, reload=reload)
 
 
@@ -782,7 +797,7 @@ def scan(directory: str, extensions: tuple, chunk_size: int | None, dry_run: boo
         ext_list = config.get("scan", {}).get("extensions", [])
 
     # 确定 chunk_size
-    cs = chunk_size or config.get("scan", {}).get("chunk_size", 1000)
+    cs = chunk_size or config.get("scan", {}).get("chunk_size", 10000)
 
     # 检查提供商（dry-run 不需要）
     if not dry_run:
