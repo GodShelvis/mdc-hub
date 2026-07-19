@@ -108,12 +108,19 @@ AI_TOOLS = {
     },
 }
 
-# Skills 安装目标
-SKILLS_TARGETS = [
-    lambda root: root / ".trae" / "skills",
-    lambda root: Path.home() / ".agents" / "skills",
-    lambda root: Path.home() / ".claude" / "skills",
-]
+# Skills 安装目标（按工具映射）
+SKILLS_TARGETS_ALL = {
+    "trae":       [lambda root: root / ".trae" / "skills"],
+    "claude_code": [lambda root: Path.home() / ".claude" / "skills"],
+    "codebuddy":  [lambda root: root / ".codebuddy" / "skills"],
+    "cursor":     [lambda root: Path.home() / ".cursor" / "skills"],
+    "windsurf":   [lambda root: Path.home() / ".windsurf" / "skills"],
+    # 通用兜底
+    "_default":   [lambda root: Path.home() / ".agents" / "skills"],
+}
+
+# 列出所有工具的 Skills 目标（install 全部时使用）
+SKILLS_TARGETS = [fn for tgt_list in SKILLS_TARGETS_ALL.values() for fn in tgt_list]
 
 
 # ============================================================
@@ -264,8 +271,12 @@ def _write_toml_config(path: Path, entry_key: str, command: str, cwd: str = ""):
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
-def _install_skills(project_root: Path) -> int:
-    """将 skills/ 复制到各 AI 工具的 Skills 目录。"""
+def _install_skills(project_root: Path, tool_ids: list[str] | None = None) -> int:
+    """将 skills/ 复制到对应 AI 工具的 Skills 目录。
+
+    Args:
+        tool_ids: 要安装的工具 ID 列表。None 表示全部。
+    """
     # 确定 skills 源目录
     local_skills = project_root / "skills"
     if local_skills.is_dir():
@@ -286,9 +297,24 @@ def _install_skills(project_root: Path) -> int:
         except Exception:
             return 0
 
+    # 确定目标目录
+    targets = []
+    if tool_ids is None:
+        # 全部
+        targets = [(fn(project_root), "") for fn_list in SKILLS_TARGETS_ALL.values() for fn in fn_list]
+    else:
+        for tid in tool_ids:
+            fn_list = SKILLS_TARGETS_ALL.get(tid, SKILLS_TARGETS_ALL["_default"])
+            for fn in fn_list:
+                targets.append((fn(project_root), tid))
+
     count = 0
-    for target_fn in SKILLS_TARGETS:
-        dst = target_fn(project_root)
+    seen = set()
+    for dst, _tool in targets:
+        dst_str = str(dst)
+        if dst_str in seen:
+            continue
+        seen.add(dst_str)
         for name, md_path in skills_dirs:
             dst_dir = dst / name
             dst_dir.mkdir(parents=True, exist_ok=True)
@@ -471,6 +497,7 @@ def install(project: str, global_install: bool, dry_run: bool):
         ensure_hub_structure(str(project_root))
 
     # 选择并安装 MCP 配置
+    selected_tools = []
     if mcp_available:
         detected = _detect_installed_tools(project_root)
 
@@ -544,10 +571,18 @@ def install(project: str, global_install: bool, dry_run: bool):
     else:
         installed = -1  # MCP 不可用
 
-    # 安装 Skills
+    # 安装 Skills（仅安装选中工具的对应目录）
+    if mcp_available and selected_tools:
+        tool_ids = [tid for tid, _ in selected_tools]
+    else:
+        tool_ids = None  # 全部
+    
     click.echo("")
-    skill_count = _install_skills(project_root)
-    click.echo(f"  ✓ Skills 已安装 ({skill_count} 个)\n")
+    skill_count = _install_skills(project_root, tool_ids)
+    if tool_ids:
+        click.echo(f"  ✓ Skills 已安装到 {', '.join(tool_ids)} ({skill_count} 个)\n")
+    else:
+        click.echo(f"  ✓ Skills 已安装 ({skill_count} 个)\n")
 
     if installed == 0 and not dry_run:
         click.echo("  未检测到已安装的 AI 工具。手动配置请参考 mcp-config.json\n")
