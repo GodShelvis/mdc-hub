@@ -260,7 +260,7 @@ def _add_file_batches(batches: list[ScanBatch], nodes: list[FileNode], chunk_siz
             description=f"生成MDC: {node.rel_path}",
         ))
     else:
-        # 多文件：Pass 1 + Pass 2 都批量合并
+        # 多文件：Pass 1 批量合并，Pass 2 分小批（避免 JSON 过长被截断）
         total_lines = sum(n.size_lines for n in nodes)
         names = ", ".join(n.name for n in nodes[:3])
         if len(nodes) > 3:
@@ -270,11 +270,18 @@ def _add_file_batches(batches: list[ScanBatch], nodes: list[FileNode], chunk_siz
             pass_num=1,
             description=f"批量结构分析: {names} ({total_lines}行)",
         ))
-        batches.append(ScanBatch(
-            nodes=nodes,
-            pass_num=2,
-            description=f"批量生成MDC: {names}",
-        ))
+        # Pass 2 每批最多 6 个文件，确保 AI 输出 JSON 不被截断
+        MDC_CHUNK = 6
+        for j in range(0, len(nodes), MDC_CHUNK):
+            subgroup = nodes[j:j + MDC_CHUNK]
+            sub_names = ", ".join(n.name for n in subgroup[:3])
+            if len(subgroup) > 3:
+                sub_names += f" ...共{len(subgroup)}个"
+            batches.append(ScanBatch(
+                nodes=subgroup,
+                pass_num=2,
+                description=f"批量生成MDC: {sub_names}",
+            ))
 
 
 # ---- 第三步：执行扫描 ----
