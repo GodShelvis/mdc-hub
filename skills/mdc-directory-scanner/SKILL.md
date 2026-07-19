@@ -26,6 +26,27 @@ description: "统筹扫描整个目录，按文件类型分流到专业子扫描
 | `get_workspace_info` | 获取工作区信息 |
 | `open_dashboard` | 获取 Web UI 地址 |
 
+## CLI 命令参考（graph 子命令）
+
+扫描完成并归档到 `.mdc-hub/docs/` 后，可通过 CLI 查询知识图谱：
+
+```bash
+# 列出所有节点
+mdc-hub graph list <dir> [--json]
+
+# 遍历邻居节点
+mdc-hub graph neighbors <node-id> <dir> [-d depth] [-r up|down|both]
+
+# 查找最短路径
+mdc-hub graph path <from-id> <to-id> <dir> [-d max-depth]
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--json` | JSON 格式输出节点列表 |
+| `-d / --depth` | 遍历/搜索深度 |
+| `-r / --relation` | 遍历方向：`up`（上游）/ `down`（下游）/ `both`（双向） |
+
 ## 完整扫描流程（7 步）
 
 ### 第一步：初始化
