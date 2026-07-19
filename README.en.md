@@ -2,39 +2,84 @@
 
 [中文](README.md) | English
 
-**Knowledge Base Management & Visualization Tool** — Transform your project code, documents, and data into interactive knowledge graphs, powered by AI.
+**Knowledge Base Management & Visualization Tool** — Transform project code into interactive knowledge graphs, powered by AI.
 
 ## Features
 
-- **MCP Server** — 6 tools, directly callable by AI via stdio
-- **5 Built-in Skills** — code/table/document/media/directory scanning, ready out of the box
-- **AI-Powered Scanning** — scan entire codebases with any OpenAI-compatible provider, auto-generate structured documentation
-- **Method-Level Knowledge Graph** — each Java/Python/TS method as an independent node, with visualized call relationships
-- **Web Dashboard** — drag-and-drop nodes, Markdown rendering, category/tag filtering
-- **Dark/Light Theme** — full day/night mode support
-- **Mermaid Diagrams** — automatic chart rendering in documents
+- **Offline-Ready Wheel** — Frontend, Skills, and presets all bundled, one `pip install` and you're set
+- **AI Deep Scanning** — Point-by-point code analysis, generating 200-500 word detailed knowledge docs
+- **Batch Merging Strategy** — Bottom-up + cross-directory merging for maximum AI efficiency; Pass 2 auto-split into small batches
+- **Web Dashboard** — Interactive knowledge graph, Markdown rendering, category/tag filtering
+- **Dark/Light Theme** — Full day/night mode support
+- **Built-in Skills** — 5 professional Skills (code/table/document/media/directory scanning)
 
 ## Quick Start
 
+### Install
+
 ```bash
-pip install "mdc-hub[mcp] @ git+https://github.com/GodShelvis/mdc-hub.git"
-mdc-hub install
+# Option 1: Offline wheel from GitHub Release
+pip install mdc_hub-0.3.0-py3-none-any.whl
+
+# Option 2: From source
+pip install "mdc-hub @ git+https://github.com/GodShelvis/mdc-hub.git"
 ```
 
-`mdc-hub install` auto-detects installed AI tools (Trae, Claude Code, OpenCode, Cursor, Codex, Windsurf, etc. — 9 platforms), writes MCP configs, and installs all 5 Skills. During install, you can optionally configure an AI provider for smart scanning.
+### Setup
 
-After installation, just say in any AI tool:
+```bash
+mdc-hub install       # Choose AI tools (Claude Code / OpenCode) for MCP config + Skills
+mdc-hub provider setup  # Configure AI provider
+```
 
-> "Scan this project and generate a knowledge graph"
+### Scan & Generate Knowledge Graph
+
+```bash
+mdc-hub scan src --dry-run  # Preview scan plan
+mdc-hub scan src            # Run AI deep scan
+```
+
+### Launch Web Dashboard
+
+```bash
+mdc-hub serve
+```
+
+Open `http://localhost:8000` — the frontend auto-loads scanned knowledge docs.
 
 ## CLI Reference
 
-### install — Setup
+| Command | Description |
+|---------|-------------|
+| `mdc-hub install` | Choose AI tools, install MCP config + Skills |
+| `mdc-hub serve` | Start backend API + frontend static files |
+| `mdc-hub scan <dir>` | AI deep scan, generate knowledge graph docs |
+| `mdc-hub mcp` | Start MCP Server (stdio mode) |
+| `mdc-hub provider setup` | Interactive AI provider configuration |
+| `mdc-hub graph list` | List knowledge nodes |
+| `mdc-hub graph neighbors` | Traverse N-layer neighbors |
+| `mdc-hub graph path` | Find shortest path between nodes |
+
+### scan — AI Smart Scanning
 
 ```bash
-mdc-hub install              # Auto-detect and install
-mdc-hub install --dry-run    # Preview only
+mdc-hub scan                     # Scan current directory
+mdc-hub scan ./src               # Scan specific directory
+mdc-hub scan --dry-run           # Preview plan (no AI calls)
+mdc-hub scan -e .py -e .java     # Filter by extension
 ```
+
+Strategy: bottom-up → batch merge Pass 1 → Pass 2 small-batch MDC generation → Pass 3 directory summary. Default 10,000 lines/chunk, supports 29 file formats.
+
+### serve — Launch Web UI
+
+```bash
+mdc-hub serve                  # Default port 8000
+mdc-hub serve --port 3000      # Custom port
+mdc-hub serve -p ./my-project  # Specify project directory
+```
+
+Auto-initializes `.mdc-hub/`, hosts both backend API and frontend.
 
 ### provider setup — Configure AI Provider
 
@@ -42,108 +87,67 @@ mdc-hub install --dry-run    # Preview only
 mdc-hub provider setup
 ```
 
-Interactive flow: choose a preset provider (OpenAI / Anthropic / Zhipu GLM / Tongyi Qwen / DeepSeek / MiniMax) or custom → enter API key → auto-fetch model list → save to `.mdc-hub/config/settings.yaml`.
+Choose from presets (OpenAI/DeepSeek/Zhipu/Tongyi etc.) or custom → enter API key → auto-fetch model list.
 
-### scan — AI Smart Scanning
-
-```bash
-mdc-hub scan                  # Scan current directory
-mdc-hub scan ./src            # Scan specific directory
-mdc-hub scan --dry-run        # Preview plan (no AI calls)
-mdc-hub scan -e .py -e .java  # Filter by extension
-```
-
-Bottom-up strategy: source files first → directory summaries. Large files auto-chunked (1000 lines). Two passes per file (structure → document generation). Directory-level docs summarize children without re-scanning.
-
-### serve — Launch Web UI
+### graph — Graph Queries
 
 ```bash
-mdc-hub serve                  # Default port 8000
-mdc-hub serve --port 3000      # Custom port
-mdc-hub serve --dev            # Dev mode
+mdc-hub graph list ./docs              # List nodes
+mdc-hub graph neighbors user-svc ./docs -d 2  # 2-layer neighbors
+mdc-hub graph path a b ./docs          # Shortest path
 ```
 
-### graph list — List Nodes
+## Development Status
 
-```bash
-mdc-hub graph list ./my-project
-mdc-hub graph list ./my-project --json
-```
+### Completed
 
-### graph neighbors — Traverse Neighbors
+- [x] CLI tools: `install` / `serve` / `scan` / `provider` / `graph` / `mcp`
+- [x] AI deep scan engine (Pass 1 → Pass 2 → Pass 3)
+- [x] Batch merging + bottom-up analysis
+- [x] Offline wheel packaging (frontend + Skills + presets bundled)
+- [x] Web dashboard (node drag, Markdown rendering, filtering)
+- [x] 5 built-in Skills
+- [x] Claude Code / OpenCode MCP config + Skills installation
+- [x] Cross-platform (Windows/macOS/Linux) pure-Python wheel
+- [x] Dark/light theme
 
-```bash
-mdc-hub graph neighbors <node-id> <dir>
-mdc-hub graph neighbors <node-id> <dir> -d 2    # Depth 2
-mdc-hub graph neighbors <node-id> <dir> -r up   # Upstream only
-```
+### In Progress
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--depth` | `-d` | Traversal depth | 1 |
-| `--relation` | `-r` | `up` / `down` / `both` | `both` |
+- [ ] MCP Server — framework ready (`mdc-hub mcp` launches), tool-skill integration WIP
+- [ ] Web-based Markdown document editing
+- [ ] AI-powered content adjustment (partial rewrite / full optimization)
 
-### graph path — Shortest Path
+### Planned
 
-```bash
-mdc-hub graph path <from> <to> <dir>
-mdc-hub graph path <from> <to> <dir> -d 5   # Max depth
-```
-
-## MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `scan_directory` | Scan directory by file type |
-| `read_files` | Batch read file contents |
-| `write_mdc_document` | Write to `.mdc-hub/docs/` |
-| `list_archived_documents` | List archived documents |
-| `get_workspace_info` | Get workspace root and config |
-| `open_dashboard` | Get Web UI URL |
+- [ ] Document parsers: Word (.docx) / Excel (.xlsx) / PowerPoint (.pptx)
+- [ ] Create new documents within workspace via Web UI
+- [ ] More AI tool MCP integrations (Codex, Cursor, etc.)
+- [ ] Incremental scanning (changed files only)
 
 ## Architecture
 
 ```
 mdc-hub/
-├── skills/                  # AI Skills (5 built-in)
-│   ├── mdc-directory-scanner/   # Orchestrator (7-step workflow)
+├── skills/                  # 5 Built-in Skills
+│   ├── mdc-directory-scanner/   # Orchestrator
 │   ├── mdc-code-scanner/        # Code → method-level nodes
-│   ├── mdc-excel-scanner/       # Tables → sheet-level nodes
-│   ├── mdc-doc-scanner/         # Documents → chapter-level nodes
-│   └── mdc-media-scanner/       # Media → resource-level nodes
+│   ├── mdc-excel-scanner/       # Spreadsheet analysis
+│   ├── mdc-doc-scanner/         # Document analysis
+│   └── mdc-media-scanner/       # Media analysis
 ├── backend/                 # Python Backend
 │   ├── mcp_server.py            # MCP Server (stdio)
 │   ├── archiver.py              # .mdc-hub/ archive management
 │   ├── main.py                  # FastAPI HTTP API
 │   ├── scanner.py               # MDC file parser
-│   ├── ai_service.py            # Universal AI (OpenAI-compatible)
-│   └── scan_engine.py           # Bottom-up scan engine
+│   ├── ai_service.py            # AI interface + prompts
+│   ├── scan_engine.py           # Scan engine
+│   └── web_dist/                # Frontend static files (bundled in wheel)
 ├── cli/                     # CLI
-│   └── main.py                  # install / serve / provider / scan / graph
+│   └── main.py                  # install / serve / scan / provider / graph / mcp
 ├── frontend/                # Vue 3 Frontend
-├── examples/                # Example MDC docs
-└── scripts/
-    └── mcp-entry.sh         # MCP Server entry point
+├── config/                  # Presets (providers/tags/categories)
+└── .github/workflows/       # CI/CD (Release auto-builds wheel)
 ```
-
-## Document Format (MDC)
-
-```yaml
----
-id: "user-service"
-title: "UserService — User Service"
-category: "backend-core"
-tags: [java, service, user]
-connections:
-  - target: "user-dao"
-    relation: "depends-on"
----
-
-# Markdown Body
-...
-```
-
-See `examples/tooling/mdc-spec.md` for details.
 
 ## License
 
